@@ -87,14 +87,14 @@ spotbugsMain {
     reports {
         html {
             enabled = true
-            destination = file("build/reports/spotbugs/main/spotbugs.html")
+            destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
             stylesheet = 'fancy-hist.xsl'
         }
     }
 }
 
 spotbugs {
-    excludeFilter = file("config/spotbugs/spotBugsExcludeFilter.xml")
+    excludeFilter = rootProject.file("config/spotbugs/spotBugsExcludeFilter.xml")
 }
 
 pmd {
@@ -105,14 +105,15 @@ pmd {
     ruleSets = []
 
     rulesMinimumPriority = 1
-    ruleSetFiles = files("config/pmd/ruleset.xml")
+    ruleSetFiles = rootProject.files("config/pmd/ruleset.xml")
 }
 
 checkstyle {
-    toolVersion "9.2"
     sourceSets = [sourceSets.main, sourceSets.test]
-    configFile =rootProject.file('config/checkstyle/checkstyle.xml')
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+}
 
+tasks.withType(Checkstyle) {
     reports {
         xml.required = false
         html.required = true
@@ -121,7 +122,7 @@ checkstyle {
 
 spotless {
     // optional: limit format enforcement to just the files changed by this feature branch
-    ratchetFrom 'origin/master'
+    ratchetFrom 'origin/main'
 
     format 'misc', {
         // define the files to apply `misc` to
