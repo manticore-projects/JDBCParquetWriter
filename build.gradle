@@ -1,25 +1,32 @@
+import se.bjurr.gitchangelog.plugin.gradle.GitChangelogTask
+
 plugins {
     id 'java-library'
 
     id 'maven-publish'
+    id 'signing'
+
     id 'jacoco'
     id "com.github.spotbugs" version "latest.release"
     id "com.diffplug.spotless" version "latest.release"
     id 'pmd'
     id 'checkstyle'
 
-    id 'org.hidetake.ssh' version "latest.release"
+    id "org.hidetake.ssh" version "latest.release"
     id "se.bjurr.gitchangelog.git-changelog-gradle-plugin" version "latest.release"
 }
 
-group = 'com.manticore'
+repositories {
+    gradlePluginPortal()
+    mavenCentral()
+}
 
 def getVersion = { boolean considerSnapshot ->
     def major = 0
     def minor = 0
     def patch = 0
     def commit = ""
-    def snapshot =""
+    def snapshot = ""
     new ByteArrayOutputStream().withStream { os ->
         exec {
             workingDir "$projectDir"
@@ -33,30 +40,27 @@ def getVersion = { boolean considerSnapshot ->
             executable "git"
             standardOutput = os
         }
-        def matcher = os.toString() =~ /(\d*)\.(\d*)-(\d*)-([a-zA-Z\d]*)/
+        def matcher = os.toString() =~ /(\d*)\.(\d*)\.(\d*)-(\d*)-([a-zA-Z\d]*)/
         matcher.find()
 
         major = matcher[0][1]
         minor = matcher[0][2]
         patch = matcher[0][3]
-        commit = matcher[0][4]
+        commit = matcher[0][5]
 
-        if (considerSnapshot) {
+        if (considerSnapshot && os.toString().endsWith("SNAPSHOT")) {
             minor++
             snapshot =  "-SNAPSHOT"
         }
     }
-    return "${major}.${minor}${snapshot}"
+    return "${major}.${minor}.${patch}${snapshot}"
 }
 version = getVersion(true)
+description = 'JDBC Table or ResultSet to Parquet File Writer'
+group = "com.manticore-projects.jdbc"
+archivesBaseName = "JDBCParquetWriter"
 
-description = 'JSQLParser library'
 java.sourceCompatibility = JavaVersion.VERSION_1_8
-
-repositories {
-    gradlePluginPortal()
-    mavenCentral()
-}
 
 dependencies {
     // Use JUnit Jupiter for testing.
@@ -71,10 +75,76 @@ dependencies {
     implementation 'org.lz4:lz4-java:+'
 }
 
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
 javadoc {
-    options.addBooleanOption('html5', true)
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
     options.addBooleanOption("Xdoclint:none", true)
 }
+
+artifacts {
+    archives javadocJar, sourcesJar
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'JDBCParquetWriter'
+            from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = 'JDBCParquetWriter'
+                description = 'JDBC Table or ResultSet to Parquet File Writer'
+                url = 'https://manticore-projects.com/JDBCParquetWriter'
+                licenses {
+                    license {
+                        name = 'The GNU GENERAL PUBLIC LICENSE, Version 3.0'
+                        url = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'are'
+                        name = 'Andreas Reichel'
+                        email = 'andreas@manticore-projects.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/manticore-projects/JDBCParquetWriter.git'
+                    developerConnection = 'scm:git:ssh://git@github.com:manticore-projects/JDBCParquetWriter.git'
+                    url = 'https://github.com/manticore-projects/JDBCParquetWriter'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name "ossrh"
+
+            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl= "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials(PasswordCredentials)
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.mavenJava
+}
+
 
 test {
     // Use JUnit Platform for unit tests.
@@ -94,7 +164,7 @@ spotbugsMain {
 }
 
 spotbugs {
-    excludeFilter = rootProject.file("config/spotbugs/spotBugsExcludeFilter.xml")
+    excludeFilter = file("config/spotbugs/spotBugsExcludeFilter.xml")
 }
 
 pmd {
@@ -105,15 +175,15 @@ pmd {
     ruleSets = []
 
     rulesMinimumPriority = 1
-    ruleSetFiles = rootProject.files("config/pmd/ruleset.xml")
+    ruleSetFiles = files("config/pmd/ruleset.xml")
 }
 
 checkstyle {
     sourceSets = [sourceSets.main, sourceSets.test]
-    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    configFile = file('config/checkstyle/checkstyle.xml')
 }
 
-tasks.withType(Checkstyle) {
+tasks.withType(Checkstyle).configureEach {
     reports {
         xml.required = false
         html.required = true
@@ -137,4 +207,43 @@ spotless {
         indentWithSpaces(4)
         eclipse().configFile('config/formatter/eclipse-java-google-style.xml')
     }
+}
+
+tasks.register('gitChangelogTask', GitChangelogTask) {
+    fromRepo = file("$projectDir")
+    file = new File("${projectDir}/src/site/sphinx/changelog.rst")
+    fromRef = "1.0.0"
+    //toRef = "1.1";
+
+    // switch off the formatter since the indentation matters for Mark-down
+    // @formatter:off
+    templateContent ="""
+************************
+Changelog
+************************
+
+
+{{#tags}}
+{{#ifMatches name "^Unreleased.*"}}
+Latest Changes since |JDBCPARQUETWRITER_VERSION|
+{{/ifMatches}}
+{{#ifMatches name "^(?!Unreleased).*"}}
+Version {{name}}
+{{/ifMatches}}
+=============================================================
+
+ {{#issues}}
+
+  {{#commits}}
+   {{#ifMatches messageTitle "^(?!Merge).*"}}
+  * **{{{messageTitle}}}**
+    
+    {{authorName}}, {{commitDate}}
+   {{/ifMatches}}
+  {{/commits}}
+
+ {{/issues}}
+{{/tags}}
+"""
+    // @formatter:on
 }
