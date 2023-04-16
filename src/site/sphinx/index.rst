@@ -20,7 +20,13 @@ Development version: |JDBCPARQUETWRITER_SNAPSHOT_VERSION_LINK|
 .. code-block:: Java
     :caption: Sample SQL Statement
 
-    JDBCParquetWriter.write(file, tableName, resultSet);
+    String tableName = "execution_ref";
+    File file = File.createTempFile(tableName, ".parquet");
+
+    String sqlStr = "SELECT * FROM " + tableName;
+    try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
+        JDBCParquetWriter.write(file, tableName, rs);
+    }
 
 
 *******************************
