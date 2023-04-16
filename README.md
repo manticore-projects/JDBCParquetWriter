@@ -1,7 +1,7 @@
 # JDBCParquetWriter [WebSite](http://manticore-projects.com/JDBCParquetWriter)
 
-**JDBCParquetWriter** is a Java Library for writing [Apache Parquet](https://parquet.apache.org/) Files from JDBC Tables or ResultSets. It uses [Apache Hadoop](<https://hadoop.apache.org/) and Parquet to translate the JDBC rows into the column based format.
-The Parquet File can be imported into Column based Analytics Databases such as [ClickHouse]((https://clickhouse.com/>) or [DuckDB](<https://duckdb.org/).
+**JDBCParquetWriter** is a Java Library for writing [Apache Parquet](https://parquet.apache.org/) Files from JDBC Tables or ResultSets. It uses [Apache Hadoop](https://hadoop.apache.org/) and Parquet to translate the JDBC rows into the column based format.
+The Parquet File can be imported into Column based Analytics Databases such as [ClickHouse]((https://clickhouse.com/) or [DuckDB](https://duckdb.org/).
 
 ## Artifact
 
@@ -9,7 +9,7 @@ The Parquet File can be imported into Column based Analytics Databases such as [
 <dependency>
     <groupId>com.manticore-projects.jdbc</groupId>
     <artifactId>JDBCParquetWriter</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
@@ -45,9 +45,7 @@ try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlSt
 ```text
 are@archlinux ~/d/s/VBox (default) [1]> duckdb
 v0.7.1 b00b93f0b1
-Enter ".help" for usage hints.
-Connected to a transient in-memory database.
-Use ".open FILENAME" to reopen on a persistent database.
+
 D select * from read_parquet("/tmp/execution_ref8120677930150886139.parquet");
 ┌──────────────────┬────────────┬────────────────────────────┐
 │ ID_EXECUTION_REF │ VALUE_DATE │        POSTING_DATE        │
