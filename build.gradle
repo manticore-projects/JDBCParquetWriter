@@ -40,7 +40,7 @@ def getVersion = { boolean considerSnapshot ->
             executable "git"
             standardOutput = os
         }
-        def matcher = os.toString() =~ /(\d*)\.(\d*)\.(\d*)-(\d*)-([a-zA-Z\d]*)/
+        def matcher = os.toString() =~ /(\d*)\.(\d*)\.(\d*)(-(\d*)-([a-zA-Z\d]*))?/
         matcher.find()
 
         major = matcher[0][1]
