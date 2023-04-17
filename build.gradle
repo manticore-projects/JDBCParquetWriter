@@ -60,8 +60,6 @@ description = 'JDBC Table or ResultSet to Parquet File Writer'
 group = "com.manticore-projects.jdbc"
 archivesBaseName = "JDBCParquetWriter"
 
-java.sourceCompatibility = JavaVersion.VERSION_1_8
-
 dependencies {
     implementation 'org.apache.parquet:parquet-common:+'
     implementation 'org.apache.parquet:parquet-encoding:+'
@@ -114,6 +112,8 @@ configurations.configureEach {
 java {
     withSourcesJar()
     withJavadocJar()
+    sourceCompatibility(JavaVersion.VERSION_1_8)
+    targetCompatibility(JavaVersion.VERSION_1_8)
 }
 
 javadoc {
