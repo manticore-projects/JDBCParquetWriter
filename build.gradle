@@ -84,13 +84,30 @@ configurations.configureEach {
         }
     }
 
-    // avoid using old Logging APIs with security issues
+
     resolutionStrategy {
+        // avoid using old Logging APIs with security issues
         force 'org.apache.logging.log4j:log4j-api:2.+'
         force 'org.apache.logging.log4j:log4j-core:2.+'
         force 'org.apache.logging.log4j:log4j-slf4j-impl:2.+'
         force 'org.apache.logging.log4j:log4j-jul:2.+'
         force 'org.slf4j:slf4j-log4j12:2.+'
+
+        // avoid vulnerable Hadoop Dependencies not needed for Parquet
+        exclude(group: 'io.netty')
+        exclude(group: 'org.codehaus.jettison')
+        exclude(group: 'org.mortbay.jetty')
+        exclude(group: 'javax.servlet.jsp')
+        exclude(group: 'com.sun.jersey')
+        exclude(group: 'org.apache.curator')
+        exclude(group: 'org.apache.zookeeper')
+        exclude(group: 'org.apache.kerby')
+        exclude(group: 'com.google.protobuf')
+        exclude(group: 'org.yaml')
+        exclude(group: 'net.minidev', module: 'json-smart')
+        exclude(group: 'org.codehaus.jackson', module: 'jackson-mapper-asl')
+        exclude(group: 'org.apache.hadoop', module: 'hadoop-hdfs-client')
+        exclude(group: 'com.google.guava', module: 'guava')
     }
 }
 
@@ -104,10 +121,6 @@ javadoc {
         options.addBooleanOption('html5', true)
     }
     options.addBooleanOption("Xdoclint:none", true)
-}
-
-artifacts {
-    archives javadocJar, sourcesJar
 }
 
 publishing {
