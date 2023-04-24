@@ -1,5 +1,7 @@
 # JDBCParquetWriter [WebSite](http://manticore-projects.com/JDBCParquetWriter)
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/fcfaaa26ddf84063ad0fc23a70dcd7c2)](https://app.codacy.com/gh/manticore-projects/JDBCParquetWriter?utm_source=github.com&utm_medium=referral&utm_content=manticore-projects/JDBCParquetWriter&utm_campaign=Badge_Grade)
+
 **JDBCParquetWriter** is a Java Library for writing [Apache Parquet](https://parquet.apache.org/) Files from JDBC Tables or ResultSets. It uses [Apache Hadoop](https://hadoop.apache.org/) and Parquet to translate the JDBC rows into the column based format.
 The Parquet File can be imported into Column based Analytics Databases such as [ClickHouse](https://clickhouse.com/) or [DuckDB](https://duckdb.org/).
 
