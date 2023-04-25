@@ -41,13 +41,20 @@ class JDBCParquetWriterTest {
                         + "    id_execution_ref         DECIMAL(9) NOT NULL\n"
                         + "    , value_date             DATE       NOT NULL\n"
                         + "    , posting_date           TIMESTAMP  NOT NULL\n"
+                        + "    , amount                 DECIMAL(12,2)  NULL\n"
+                        + "    , large_amount           DECIMAL(23,5)  NULL\n"
                         + ")\n"
                         + ";",
-                "INSERT INTO TEST.EXECUTION_REF VALUES (1, {d '2021-01-06'}, {ts '2021-01-15 07:48:40.851'});",
-                "INSERT INTO TEST.EXECUTION_REF VALUES (2, {d '2021-01-12'}, {ts '2021-01-13 06:55:10.329'});",
-                "INSERT INTO TEST.EXECUTION_REF VALUES (3, {d '2021-01-13'}, {ts '2021-01-14 05:00:41.136'});",
-                "INSERT INTO TEST.EXECUTION_REF VALUES (4, {d '2021-01-14'}, {ts '2021-01-15 01:03:56.375'});",
-                "INSERT INTO TEST.EXECUTION_REF VALUES (5, {d '2021-01-15'}, {ts '2021-01-16 00:19:20.212'});"
+                "INSERT INTO TEST.EXECUTION_REF "
+                        + "VALUES (1, {d '2021-01-06'}, {ts '2021-01-15 07:48:40.851'}, 100.22 , 100.22);",
+                "INSERT INTO TEST.EXECUTION_REF "
+                        + "VALUES (2, {d '2021-01-12'}, {ts '2021-01-13 06:55:10.329'}, 75.3, 75.3);",
+                "INSERT INTO TEST.EXECUTION_REF "
+                        + "VALUES (3, {d '2021-01-13'}, {ts '2021-01-14 05:00:41.136'}, null, null);",
+                "INSERT INTO TEST.EXECUTION_REF "
+                        + "VALUES (4, {d '2021-01-14'}, {ts '2021-01-15 01:03:56.375'}, 354.1, 354.1);",
+                "INSERT INTO TEST.EXECUTION_REF "
+                        + "VALUES (5, {d '2021-01-15'}, {ts '2021-01-16 00:19:20.212'}, 7.15, 7.15);"
         };
 
         try (Statement st = conn.createStatement()) {
@@ -61,7 +68,6 @@ class JDBCParquetWriterTest {
     static void close() throws SQLException {
         conn.close();
     }
-
 
     @Test
     void write() throws Exception {

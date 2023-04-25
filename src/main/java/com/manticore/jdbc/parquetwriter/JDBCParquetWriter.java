@@ -24,6 +24,7 @@ import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -31,29 +32,100 @@ import org.apache.parquet.schema.Types;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.logging.Logger;
 
 public class JDBCParquetWriter {
+    public final static Logger LOGGER = Logger.getLogger(JDBCParquetWriter.class.getName());
+
+    public enum Dialect {
+        DUCKDB, CLICKHOUSE
+    };
+
+    public static String writeFileForQueryResult(File folder, String qryStr, String targetTableName,
+            Connection conn, Dialect dialect, CompressionCodecName compressionCodecName)
+            throws Exception {
+        File file = new File(folder, targetTableName + ".parquet");
+        try (
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(qryStr);) {
+            write(file, targetTableName, rs, compressionCodecName);
+            LOGGER.info("Wrote parquet file: " + file.getAbsolutePath());
+        }
+
+        String importQryStr = "INSERT INTO " + targetTableName
+                + " SELECT * FROM read_parquet(\"" + file.getAbsolutePath() + "\");";
+        LOGGER.info("DuckDB Insert: " + importQryStr);
+
+        return importQryStr;
+    }
+
+    public static String writeFilesForQueryTables(File folder, String qryStr, Connection conn,
+            Dialect dialect, CompressionCodecName compressionCodecName) throws Exception {
+        String importQryStr = "";
+
+        TableNamesFinder finder = new TableNamesFinder(qryStr);
+        for (String tableName : finder.getSourceTableNames()) {
+            LOGGER.info("Create parquet file for table: " + tableName);
+
+            importQryStr += "\n"
+                    + writeFileForQueryResult(
+                            folder, "SELECT * FROM " + tableName, tableName, conn, dialect,
+                            compressionCodecName);
+        }
+        return importQryStr;
+    }
+
+    public static void write(File file, String tableName, Connection conn) throws Exception {
+        write(file, tableName, conn, CompressionCodecName.SNAPPY);
+    }
+
+    public static void write(File file, String tableName, Connection conn,
+            CompressionCodecName compressionCodecName) throws Exception {
+        String qryStr = "SELECT * FROM " + tableName;
+        try (
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(qryStr);) {
+            write(file, tableName, rs, compressionCodecName);
+            LOGGER.info("Wrote parquet file: " + file.getAbsolutePath());
+        }
+    }
+
     public static void write(File f, String tableName, ResultSet rs) throws Exception {
+        write(f, tableName, rs, CompressionCodecName.SNAPPY);
+    }
+
+    public static void write(File f, String tableName, ResultSet rs,
+            CompressionCodecName compressionCodecName) throws Exception {
         // needed for org.apache.hadoop.util.Shell
         System.setProperty("hadoop.home.dir", f.getParent());
 
         Path outputPath = new Path(f.toURI());
 
         ResultSetMetaData metaData = rs.getMetaData();
+        // SELECT FROM tablename is valid, but does not return any columns
+        if (metaData.getColumnCount() == 0) {
+            throw new Exception("ResultSet without any Columns. Please verify your Query.");
+        }
+
         MessageType schema = getParquetSchemaFromResultSet(tableName, metaData);
 
         Configuration configuration = new Configuration();
         GroupWriteSupport.setSchema(schema, configuration);
 
         ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(outputPath)
-                .withConf(configuration).withType(schema)
-                .withCompressionCodec(CompressionCodecName.SNAPPY)
+                .withConf(configuration)
+                .withType(schema)
+                .withCompressionCodec(compressionCodecName)
+                .withDictionaryEncoding(true)
+                .withValidation(false)
                 .withWriteMode(ParquetFileWriter.Mode.OVERWRITE);
 
         try (ParquetWriter<Group> writer = builder.build()) {
@@ -130,8 +202,11 @@ public class JDBCParquetWriter {
                         case java.sql.Types.NUMERIC:
                             BigDecimal decimal = rs.getBigDecimal(i);
                             if (!rs.wasNull()) {
-                                if (scale > 0) {
-                                    group.add(columnName, decimal.toPlainString());
+                                if (scale > 0 && precision <= 18) {
+                                    group.add(columnName, decimal.unscaledValue().longValue());
+                                } else if (scale > 0 && precision > 18) {
+                                    byte[] bytes = decimal.unscaledValue().toByteArray();
+                                    group.add(columnName, Binary.fromConstantByteArray(bytes));
                                 } else if (precision < 5) {
                                     group.add(columnName, decimal.intValue());
                                 } else {
@@ -242,7 +317,18 @@ public class JDBCParquetWriter {
                     break;
                 case java.sql.Types.DECIMAL:
                 case java.sql.Types.NUMERIC:
-                    if (scale > 0) {
+                    // PRECISION <= 18 can be transported as LONG derived from an unscaled
+                    // BigInteger
+                    // PRECISION > 18 must be transported as Binary based on the unscaled
+                    // BigInteger's bytes
+                    if (scale > 0 && precision <= 18) {
+                        builder.addField((nullable == ResultSetMetaData.columnNoNulls
+                                ? Types.required(PrimitiveType.PrimitiveTypeName.INT64)
+                                        .as(LogicalTypeAnnotation.decimalType(scale, precision))
+                                : Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
+                                        .as(LogicalTypeAnnotation.decimalType(scale, precision)))
+                                .named(columnName));
+                    } else if (scale > 0 && precision > 18) {
                         builder.addField((nullable == ResultSetMetaData.columnNoNulls
                                 ? Types.required(PrimitiveType.PrimitiveTypeName.BINARY)
                                         .as(LogicalTypeAnnotation.decimalType(scale, precision))
