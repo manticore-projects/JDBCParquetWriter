@@ -18,7 +18,18 @@ plugins {
 
 repositories {
     gradlePluginPortal()
+    mavenLocal()
     mavenCentral()
+
+    // Snapshots
+    //    maven {
+    //        url = uri('https://oss.sonatype.org/content/groups/public/')
+    //    }
+
+    // Sonatype OSSRH
+    maven {
+        url = uri('https://s01.oss.sonatype.org/content/repositories/snapshots/')
+    }
 }
 
 def getVersion = { boolean considerSnapshot ->
@@ -70,20 +81,16 @@ dependencies {
     implementation 'org.apache.hadoop:hadoop-mapreduce-client-core:+'
     implementation 'org.lz4:lz4-java:+'
 
+    implementation 'com.github.jsqlparser:jsqlparser:+'
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.+'
-    testImplementation 'com.h2database:h2:2.+'
+    testImplementation 'com.h2database:h2:2.2.219-SNAPSHOT'
+    testImplementation 'org.duckdb:duckdb_jdbc:+'
+    //testImplementation 'com.clickhouse:clickhouse-jdbc:+'
+
 }
 
 configurations.configureEach {
-    resolutionStrategy.componentSelection {
-        all { ComponentSelection selection ->
-            if (selection.candidate.group == 'com.github.pjfanning' && selection.candidate.version.endsWith("-SNAPSHOT")){
-                selection.reject("Rejecting changing version (SNAPSHOT)'")
-            }
-        }
-    }
-
-
     resolutionStrategy {
         // avoid using old Logging APIs with security issues
         force 'org.apache.logging.log4j:log4j-api:2.+'
@@ -239,6 +246,40 @@ spotless {
     java {
         indentWithSpaces(4)
         eclipse().configFile('config/formatter/eclipse-java-google-style.xml')
+    }
+}
+
+
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+    reports {
+        xml.required = false
+        csv.required = false
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco')
+    }
+}
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.990
+            }
+        }
+        rule {
+            limit {
+                counter = 'LINE'
+                value = 'MISSEDCOUNT'
+                maximum = 10
+            }
+        }
+        rule {
+            element = 'CLASS'
+            limit {
+                counter = 'LINE'
+                value = 'MISSEDRATIO'
+                maximum = 0.05
+            }
+        }
     }
 }
 
