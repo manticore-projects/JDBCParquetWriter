@@ -86,7 +86,7 @@ dependencies {
     implementation 'com.github.jsqlparser:jsqlparser:4.6'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.+'
-    testImplementation 'com.h2database:h2:2.2.219-SNAPSHOT'
+    testImplementation 'com.h2database:h2:+'
     testImplementation 'org.duckdb:duckdb_jdbc:+'
     //testImplementation 'com.clickhouse:clickhouse-jdbc:+'
 

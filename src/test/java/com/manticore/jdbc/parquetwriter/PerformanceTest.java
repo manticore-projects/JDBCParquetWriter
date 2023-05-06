@@ -14,7 +14,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
-import org.openjdk.jmh.infra.Blackhole;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -26,6 +25,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.logging.Logger;
 
@@ -91,9 +91,9 @@ public class PerformanceTest {
                     {0.125 * 0.02, new String[] {"b", "plus", "k", "3"}}
             };
             for (int i = 1; i < SAMPLE_SIZE; i++) {
-                double rand = new Random().nextDouble();
+                double rand = random.nextDouble();
                 BigDecimal salt = BigDecimal
-                        .valueOf(8.5d + 2 * rand)
+                        .valueOf(8.5d + 3 * rand )
                         .scaleByPowerOfTen(-1);
 
                 double totalWeight = 0.0;
@@ -177,13 +177,15 @@ public class PerformanceTest {
         connDuck.close();
     }
 
-    private void queryDB(Connection conn, Blackhole blackhole) {
+    private Object[] queryDB(Connection conn) {
+        ArrayList<Object> results = new ArrayList<>();
+
         for (String key : KEY_COLUMNS) {
             String sqlString = "SELECT Count(*) FROM (SELECT DISTINCT " + key + " FROM test)";
             try (Statement st = conn.createStatement();
                  ResultSet rs = st.executeQuery(sqlString)) {
                 if (rs.next()) {
-                    blackhole.consume(rs.getInt(1));
+                    results.add(rs.getInt(1));
                 }
             } catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -195,23 +197,27 @@ public class PerformanceTest {
         try (Statement st = connH2.createStatement();
              ResultSet rs = st.executeQuery(sqlString)) {
             if (rs.next()) {
-                blackhole.consume(rs.getInt(5));
-                blackhole.consume(rs.getBigDecimal(6));
+                results.add(rs.getInt(5));
+                results.add(rs.getBigDecimal(6));
             }
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+
+        return results.toArray();
     }
 
     @Test
     @Benchmark
-    public void queryH2(Blackhole blackhole) throws SQLException {
-        queryDB(connH2, blackhole);
+    public void queryH2() {
+        Object[] results = queryDB(connH2);
+        LOGGER.info("returned records:" + results.length);
     }
 
     @Test
     @Benchmark
-    public void testDuckDB(Blackhole blackhole) throws Exception {
-        queryDB(connDuck, blackhole);
+    public void testDuckDB() {
+        Object[] results = queryDB(connDuck);
+        LOGGER.info("returned records:" + results.length);
     }
 }
