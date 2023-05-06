@@ -197,18 +197,14 @@ test {
 }
 
 jmh {
-    iterations = 2 // Number of measurement iterations to do.
+    iterations = 3 // Number of measurement iterations to do.
     benchmarkMode = ['avgt'] // Benchmark mode. Available modes are: [Throughput/thrpt, AverageTime/avgt, SampleTime/sample, SingleShotTime/ss, All/all]
     fork = 1 // How many times to forks a single benchmark. Use 0 to disable forking altogether
-//    failOnError = true // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
-//    forceGC = false // Should JMH force GC between iterations?
+    failOnError = true // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
     humanOutputFile = project.file("${project.buildDir}/reports/jmh/human.txt") // human-readable output file
     resultsFile = project.file("${project.buildDir}/reports/jmh/results.txt") // results file
     resultFormat = 'CSV' // Result format type (one of CSV, JSON, NONE, SCSV, TEXT)
     timeUnit = 'ms' // Output time unit. Available time units are: [m, s, ms, us, ns].
-//    verbosity = 'NORMAL' // Verbosity mode. Available modes are: [SILENT, NORMAL, EXTRA]
-//    includeTests = true // Allows to include test sources into generate JMH jar, i.e. use it when benchmarks depend on the test classes.
-//    duplicateClassesStrategy = DuplicatesStrategy.FAIL // Strategy to apply when encountring duplicate classes during creation of the fat jar (i.e. while executing jmhJar task)
 }
 
 spotbugsMain {

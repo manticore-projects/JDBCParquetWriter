@@ -30,7 +30,6 @@ import java.util.Random;
 import java.util.logging.Logger;
 
 @State(Scope.Benchmark)
-@Threads(1)
 public class PerformanceTest {
     private final static Logger LOGGER = Logger.getLogger(PerformanceTest.class.getName());
     static Connection connH2;
@@ -41,24 +40,32 @@ public class PerformanceTest {
     private final static String[] KEY_COLUMNS = {"PRODUCT", "SEGMENT", "TYPE", "IMPAIRMENT_STAGE"};
 
     @BeforeAll
-    @Setup(Level.Trial)
+    @Setup
     public static void init() throws Exception {
-        connH2 = DriverManager.getConnection("jdbc:h2:~/test");
-        connDuck = DriverManager.getConnection("jdbc:duckdb:");
+        // Important: we must not use any query caches!
+        connH2 = DriverManager.getConnection("jdbc:h2:mem:;QUERY_CACHE_SIZE=0");
+        connDuck = DriverManager.getConnection("jdbc:duckdb:memory");
 
-        // Create the Table with Indices
+        LOGGER.info("Create the H2 Table with Indices");
         String sqlStr = IOUtils.resourceToString("test_ddl.sql", Charset.defaultCharset(),
                 PerformanceTest.class.getClassLoader());
         Statements statements = CCJSqlParserUtil.parseStatements(sqlStr);
         try (Statement st = connH2.createStatement()) {
             for (net.sf.jsqlparser.statement.Statement statement : statements.getStatements()) {
-                LOGGER.info("execute: " + statement.toString());
+                LOGGER.fine("execute: " + statement.toString());
+                st.execute(statement.toString());
+            }
+        }
+
+        LOGGER.info("Create the DuckDB Table with Indices");
+        try (Statement st = connDuck.createStatement()) {
+            for (net.sf.jsqlparser.statement.Statement statement : statements.getStatements()) {
+                LOGGER.fine("execute: " + statement.toString());
                 st.execute(statement.toString());
             }
         }
 
         LOGGER.info("Start writing sample portfolio");
-        // Populate the table with samples
         sqlStr = IOUtils.resourceToString("test_insert.sql", Charset.defaultCharset(),
                 PerformanceTest.class.getClassLoader());
         try (PreparedStatement st = connH2.prepareStatement(sqlStr)) {
@@ -90,7 +97,7 @@ public class PerformanceTest {
                     {0.125 * 0.15, new String[] {"b", "plus", "k", "2"}},
                     {0.125 * 0.02, new String[] {"b", "plus", "k", "3"}}
             };
-            for (int i = 1; i < SAMPLE_SIZE; i++) {
+            for (int i = 1; i <= SAMPLE_SIZE; i++) {
                 double rand = random.nextDouble();
                 BigDecimal salt = BigDecimal
                         .valueOf(8.5d + 3 * rand )
@@ -148,26 +155,23 @@ public class PerformanceTest {
                         break;
                     }
                 }
-
-                if (i % 10000 == 0) {
+                if (i % 100000 == 0) {
                     st.executeBatch();
                     LOGGER.info(i + " records written;");
                 }
             }
         }
 
+        LOGGER.info("Export the H2 Table to Parquet File");
         File parquetFile = File.createTempFile("test_", ".parquet");
         parquetFile.deleteOnExit();
         JDBCParquetWriter.write(parquetFile, "TEST", connH2);
 
+        LOGGER.info("Import the Parquet File into DuckDB");
         try (Statement st = connDuck.createStatement()) {
-            for (net.sf.jsqlparser.statement.Statement statement : statements.getStatements()) {
-                LOGGER.info("execute: " + statement.toString());
-                st.execute(statement.toString());
-            }
             st.execute("INSERT INTO test SELECT * FROM '" + parquetFile.getAbsolutePath() + "'");
         }
-        LOGGER.info("Finished preparation");
+        LOGGER.info("Finished preparation.");
     }
 
     @AfterAll
@@ -203,21 +207,20 @@ public class PerformanceTest {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-
         return results.toArray();
     }
 
     @Test
     @Benchmark
-    public void queryH2() {
+    public Object[]  queryH2() {
         Object[] results = queryDB(connH2);
-        LOGGER.info("returned records:" + results.length);
+        return results;
     }
 
     @Test
     @Benchmark
-    public void testDuckDB() {
+    public Object[] testDuckDB() {
         Object[] results = queryDB(connDuck);
-        LOGGER.info("returned records:" + results.length);
+        return results;
     }
 }
