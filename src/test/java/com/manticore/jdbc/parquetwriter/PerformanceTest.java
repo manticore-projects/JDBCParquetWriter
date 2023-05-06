@@ -8,12 +8,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.Threads;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -35,7 +33,7 @@ public class PerformanceTest {
     static Connection connH2;
     static Connection connDuck;
 
-    private final static int SAMPLE_SIZE = 1000000;
+    private final static int SAMPLE_SIZE = (int) 1E9;
 
     private final static String[] KEY_COLUMNS = {"PRODUCT", "SEGMENT", "TYPE", "IMPAIRMENT_STAGE"};
 
@@ -44,7 +42,7 @@ public class PerformanceTest {
     public static void init() throws Exception {
         // Important: we must not use any query caches!
         connH2 = DriverManager.getConnection("jdbc:h2:mem:;QUERY_CACHE_SIZE=0");
-        connDuck = DriverManager.getConnection("jdbc:duckdb:memory");
+        connDuck = DriverManager.getConnection("jdbc:duckdb:");
 
         LOGGER.info("Create the H2 Table with Indices");
         String sqlStr = IOUtils.resourceToString("test_ddl.sql", Charset.defaultCharset(),
@@ -157,7 +155,7 @@ public class PerformanceTest {
                 }
                 if (i % 100000 == 0) {
                     st.executeBatch();
-                    LOGGER.info(i + " records written;");
+                    LOGGER.info(i + " records written");
                 }
             }
         }

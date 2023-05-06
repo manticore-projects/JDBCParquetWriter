@@ -23,10 +23,10 @@ repositories {
     mavenLocal()
     mavenCentral()
 
-    // Snapshots
-    //    maven {
-    //        url = uri('https://oss.sonatype.org/content/groups/public/')
-    //    }
+    // DuckDB Snapshots
+    maven {
+        url = uri('https://oss.sonatype.org/content/groups/public/')
+    }
 
     // Sonatype OSSRH
     maven {
@@ -87,7 +87,8 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.+'
     testImplementation 'com.h2database:h2:+'
-    testImplementation 'org.duckdb:duckdb_jdbc:+'
+    testImplementation 'org.duckdb:duckdb_jdbc:0.7.1'
+    //testImplementation 'org.duckdb:duckdb_jdbc:0.8.0-20230506.051608-268'
     //testImplementation 'com.clickhouse:clickhouse-jdbc:+'
 
     testImplementation 'org.openjdk.jmh:jmh-core:+'
