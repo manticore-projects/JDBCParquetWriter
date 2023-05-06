@@ -1,0 +1,19 @@
+INSERT INTO test VALUES (
+    ? --CHARACTER VARYING(40,0) NULL
+    , ?  --CHARACTER VARYING(40,0) NULL
+    , ?  --CHARACTER VARYING(40,0) NULL
+    , ?  --CHARACTER VARYING(40,0) NULL
+    , ?  --CHARACTER VARYING(3,0) NULL
+    , ?  --NUMERIC(33,5) NULL
+    , ?  --NUMERIC(33,5) NULL
+    , ?  --NUMERIC(25,22) NULL
+    , ?  --NUMERIC(35,5) NULL
+    , ?  --NUMERIC(43,5) NULL
+    , ?  --NUMERIC(44,5) NULL
+    , ?  --NUMERIC(1,0) NULL
+    , ?  --NUMERIC(33,5) NULL
+    , ?  --NUMERIC(33,5) NULL
+    , ?  --NUMERIC(33,5) NULL
+    , ?  --NUMERIC(33,5) NULL
+    , ?  --NUMERIC(33,5) NULL
+);
