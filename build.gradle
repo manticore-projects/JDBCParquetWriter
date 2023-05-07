@@ -53,7 +53,8 @@ def getVersion = { boolean considerSnapshot ->
             executable "git"
             standardOutput = os
         }
-        def matcher = os.toString() =~ /(\d*)\.(\d*)\.(\d*)(-(\d*)-([a-zA-Z\d]*))?/
+        def versionStr = os.toString().trim()
+        def matcher = versionStr =~ /(\d*)\.(\d*)\.(\d*)(-(\d*)-([a-zA-Z\d]*))?/
         matcher.find()
 
         major = matcher[0][1] as int
@@ -61,7 +62,7 @@ def getVersion = { boolean considerSnapshot ->
         patch = matcher[0][3] as int
         commit = matcher[0][5]
 
-        if (considerSnapshot && os.toString().endsWith("SNAPSHOT")) {
+        if (considerSnapshot && versionStr.endsWith('SNAPSHOT')) {
             minor++
             patch = 0
             snapshot =  "-SNAPSHOT"
@@ -74,6 +75,10 @@ description = 'JDBC Table or ResultSet to Parquet File Writer'
 group = "com.manticore-projects.jdbc"
 archivesBaseName = "JDBCParquetWriter"
 
+configurations {
+    xmlDoclet
+}
+
 dependencies {
     implementation 'org.apache.parquet:parquet-common:+'
     implementation 'org.apache.parquet:parquet-encoding:+'
@@ -84,6 +89,7 @@ dependencies {
     implementation 'org.lz4:lz4-java:+'
 
     implementation 'com.github.jsqlparser:jsqlparser:4.6'
+    xmlDoclet 'com.github.markusbernhardt:xml-doclet:+'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.+'
     testImplementation 'com.h2database:h2:+'
@@ -127,6 +133,11 @@ java {
     withJavadocJar()
     sourceCompatibility(JavaVersion.VERSION_1_8)
     targetCompatibility(JavaVersion.VERSION_1_8)
+
+    // needed for XML-Doclet to work (since Doclet changed again with Java 13)
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(11))
+    }
 }
 
 javadoc {
@@ -136,10 +147,27 @@ javadoc {
     options.addBooleanOption("Xdoclint:none", true)
 }
 
+task generateXMLApiDocs(type: Javadoc) {
+    source = sourceSets.main.allJava
+    destinationDir = reporting.file("xmlDoclet")
+    options.docletpath = configurations.xmlDoclet.files.asType(List)
+    options.doclet = "com.github.markusbernhardt.xmldoclet.XmlDoclet"
+    options.addBooleanOption("Xdoclint:none", true)
+
+    // @see https://github.com/gradle/gradle/issues/11898#issue-549900869
+    title=null;
+    options.noTimestamp(false)
+}
+
+publish {
+    dependsOn(check)
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            artifactId = 'JDBCParquetWriter'
+            artifactId = 'jdbcparquetwriter'
+
             from components.java
             versionMapping {
                 usage('java-api') {
@@ -183,6 +211,12 @@ publishing {
             url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
             credentials(PasswordCredentials)
         }
+        maven {
+            name = "GitHubPackages"
+
+            url = uri("https://maven.pkg.github.com/manticore-projects/jdbcparquetwriter")
+            credentials(PasswordCredentials)
+        }
     }
 }
 
@@ -194,7 +228,6 @@ signing {
 test {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
-    finalizedBy check
 }
 
 jmh {
@@ -206,6 +239,7 @@ jmh {
     resultsFile = project.file("${project.buildDir}/reports/jmh/results.txt") // results file
     resultFormat = 'CSV' // Result format type (one of CSV, JSON, NONE, SCSV, TEXT)
     timeUnit = 'ms' // Output time unit. Available time units are: [m, s, ms, us, ns].
+    includeTests = true
 }
 
 spotbugsMain {
