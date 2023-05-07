@@ -4,6 +4,80 @@ Changelog
 ************************
 
 
+Version 1.1.0
+=============================================================
+
+
+  * **feat:  DuckDB vs. H2 Performance Test**
+    
+    Andreas Reichel, 2023-05-07
+  * **build: Deploy to GitHub Packages**
+    
+    Andreas Reichel, 2023-05-07
+  * **build: Increase Sample Size to 1E9**
+    
+    Andreas Reichel, 2023-05-06
+  * **build: Disable H2 Query Cache**
+    
+    Andreas Reichel, 2023-05-06
+  * **build: use standard H2 from Maven Repo**
+    
+    Andreas Reichel, 2023-05-06
+  * **test: add performance test**
+    
+    Andreas Reichel, 2023-05-06
+  * **feat: get Table Names from Query**
+    
+    Andreas Reichel, 2023-04-25
+  * **test: basic Performance Test**
+    
+    Andreas Reichel, 2023-04-25
+  * **fix: writing DECIMAL**
+    
+    Andreas Reichel, 2023-04-25
+  * **build: add dependencies and plugins**
+    
+    Andreas Reichel, 2023-04-25
+  * **Update README.md**
+    
+    manticore-projects, 2023-04-24
+  * **build: fine-tune the build file**
+    
+    Andreas Reichel, 2023-04-19
+  * **Update codeql.yml**
+    
+    manticore-projects, 2023-04-17
+  * **Create codeql.yml**
+    
+    manticore-projects, 2023-04-17
+  * **build: set JavaVersion 1.8**
+    
+    Andreas Reichel, 2023-04-17
+  * **build: exclude vulnerable Hadoop dependencies not needed for Parquet**
+    
+    Andreas Reichel, 2023-04-17
+  * **Update gradle.yml**
+    
+    manticore-projects, 2023-04-16
+  * **Update gradle.yml**
+    
+    manticore-projects, 2023-04-16
+  * **Update gradle.yml**
+    
+    manticore-projects, 2023-04-16
+  * **Create gradle.yml**
+    
+    manticore-projects, 2023-04-16
+  * **doc: improve README, fix the links**
+    
+    Andreas Reichel, 2023-04-16
+  * **doc: improve README, fix the links**
+    
+    Andreas Reichel, 2023-04-16
+  * **build: fix the Git Version REGEX**
+    
+    Andreas Reichel, 2023-04-16
+
 Version 1.0.1
 =============================================================
 
