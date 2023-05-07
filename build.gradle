@@ -147,7 +147,7 @@ javadoc {
     options.addBooleanOption("Xdoclint:none", true)
 }
 
-task generateXMLApiDocs(type: Javadoc) {
+tasks.register('generateXMLApiDocs', Javadoc) {
     source = sourceSets.main.allJava
     destinationDir = reporting.file("xmlDoclet")
     options.docletpath = configurations.xmlDoclet.files.asType(List)
@@ -155,7 +155,7 @@ task generateXMLApiDocs(type: Javadoc) {
     options.addBooleanOption("Xdoclint:none", true)
 
     // @see https://github.com/gradle/gradle/issues/11898#issue-549900869
-    title=null;
+    title = null
     options.noTimestamp(false)
 }
 
@@ -226,6 +226,8 @@ signing {
 
 
 test {
+    environment = [ 'SAMPLE_SIZE': '100000' ]
+
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 }

@@ -60,7 +60,7 @@ public class JDBCParquetWriter {
             LOGGER.info("Wrote parquet file: " + file.getAbsolutePath());
         }
 
-        String importQryStr = "INSERT INTO " + targetTableName
+        String importQryStr = "SET memory_limit='2GB'; INSERT INTO " + targetTableName
                 + " SELECT * FROM read_parquet(\"" + file.getAbsolutePath() + "\");";
         LOGGER.info("DuckDB Insert: " + importQryStr);
 
