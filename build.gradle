@@ -38,6 +38,7 @@ def getVersion = { boolean considerSnapshot ->
     int major = 0
     int minor = 0
     int patch = 0
+    int build = 0
     String commit = ""
     String snapshot = ""
     new ByteArrayOutputStream().withStream { os ->
@@ -60,13 +61,17 @@ def getVersion = { boolean considerSnapshot ->
         major = matcher[0][1] as int
         minor = matcher[0][2] as int
         patch = matcher[0][3] as int
-        commit = matcher[0][5]
+        if (matcher[0].size > 3) {
+            build = matcher[0][5]
+            commit = matcher[0][6]
+        }
 
-        if (considerSnapshot && versionStr.endsWith('SNAPSHOT')) {
+        if (considerSnapshot && ( versionStr.endsWith('SNAPSHOT') || build>0) ) {
             minor++
             patch = 0
             snapshot =  "-SNAPSHOT"
         }
+        println("Derived Version: $versionStr --> ${major}.${minor}.${patch}${snapshot}")
     }
     return "${major}.${minor}.${patch}${snapshot}"
 }
@@ -89,7 +94,7 @@ dependencies {
     implementation 'org.lz4:lz4-java:+'
 
     implementation 'com.github.jsqlparser:jsqlparser:4.6'
-    xmlDoclet 'com.github.markusbernhardt:xml-doclet:+'
+    xmlDoclet 'com.manticore-projects.tools:xml-doclet:+'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.+'
     testImplementation 'com.h2database:h2:+'
@@ -147,16 +152,22 @@ javadoc {
     options.addBooleanOption("Xdoclint:none", true)
 }
 
-tasks.register('generateXMLApiDocs', Javadoc) {
+tasks.register('xmldoc', Javadoc) {
     source = sourceSets.main.allJava
     destinationDir = reporting.file("xmlDoclet")
     options.docletpath = configurations.xmlDoclet.files.asType(List)
     options.doclet = "com.github.markusbernhardt.xmldoclet.XmlDoclet"
-    options.addBooleanOption("Xdoclint:none", true)
 
-    // @see https://github.com/gradle/gradle/issues/11898#issue-549900869
-    title = null
-    options.noTimestamp(false)
+    options.addBooleanOption("rst", true)
+    options.addStringOption("basePackage", "com.manticore.jdbc")
+
+    dependsOn(compileJava)
+    doLast {
+        copy {
+            from reporting.file("xmlDoclet/javadoc.rst")
+            into "${projectDir}/src/site/sphinx/"
+        }
+    }
 }
 
 publish {
