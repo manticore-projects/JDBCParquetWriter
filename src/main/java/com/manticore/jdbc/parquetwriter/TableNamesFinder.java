@@ -9,6 +9,7 @@ import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.insert.Insert;
 import net.sf.jsqlparser.statement.merge.Merge;
 import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.SelectVisitor;
 import net.sf.jsqlparser.statement.select.WithItem;
 import net.sf.jsqlparser.statement.update.Update;
 import net.sf.jsqlparser.util.TablesNamesFinder;
@@ -16,7 +17,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
 import java.util.HashSet;
 import java.util.Set;
 
-public class TableNamesFinder extends TablesNamesFinder {
+public class TableNamesFinder extends TablesNamesFinder<Void> {
     private String targetTableName = null;
     private HashSet<String> sourceTables = new HashSet<>();
     private Statement statement;
@@ -38,95 +39,97 @@ public class TableNamesFinder extends TablesNamesFinder {
         return sourceTables;
     }
 
-    public void visit(Insert insert) {
+    @Override
+    public <S> Void visit(Insert insert, S context) {
         targetTableName = insert.getTable().getFullyQualifiedName();
 
-        if (insert.getItemsList() != null) {
-            insert.getItemsList().accept(this);
+        if (insert.getColumns() != null) {
+            insert.getColumns().accept(this);
         }
         if (insert.getSelect() != null) {
             visit(insert.getSelect());
         }
+        return null;
     }
 
     @Override
-    public void visit(Merge merge) {
+    public <S> Void visit(Merge merge, S context) {
         targetTableName = merge.getTable().getFullyQualifiedName();
 
         if (merge.getWithItemsList() != null) {
             for (WithItem withItem : merge.getWithItemsList()) {
-                withItem.accept(this);
+                withItem.accept((SelectVisitor) this, context);
             }
         }
-
-        if (merge.getUsingTable() != null) {
-            visit(merge.getUsingTable());
-        } else if (merge.getUsingSelect() != null) {
-            visit(merge.getUsingSelect());
-        }
+        merge.getTable().accept(this, context);
+        return null;
     }
 
-    public void visit(Update update) {
+    @Override
+    public <S> Void visit(Update update, S context) {
         targetTableName = update.getTable().getFullyQualifiedName();
 
         if (update.getWithItemsList() != null) {
             for (WithItem withItem : update.getWithItemsList()) {
-                withItem.accept(this);
+                withItem.accept((SelectVisitor) this, context);
             }
         }
 
         if (update.getStartJoins() != null) {
             for (Join join : update.getStartJoins()) {
-                join.getRightItem().accept(this);
+                join.getRightItem().accept(this, context);
             }
         }
         if (update.getExpressions() != null) {
             for (Expression expression : update.getExpressions()) {
-                expression.accept(this);
+                expression.accept(this, context);
             }
         }
 
         if (update.getFromItem() != null) {
-            update.getFromItem().accept(this);
+            update.getFromItem().accept(this, context);
         }
 
         if (update.getJoins() != null) {
             for (Join join : update.getJoins()) {
-                join.getRightItem().accept(this);
+                join.getRightItem().accept(this, context);
             }
         }
 
         if (update.getWhere() != null) {
-            update.getWhere().accept(this);
+            update.getWhere().accept(this, context);
         }
+        return null;
     }
 
 
     @Override
-    public void visit(Delete delete) {
+    public <S> Void visit(Delete delete, S context) {
         targetTableName = delete.getTable().getFullyQualifiedName();
 
         if (delete.getWithItemsList() != null) {
             for (WithItem withItem : delete.getWithItemsList()) {
-                withItem.accept(this);
+                withItem.accept((SelectVisitor) this, context);
             }
         }
 
         if (delete.getUsingList() != null) {
             for (Table using : delete.getUsingList()) {
-                visit(using);
+                visit(using, context);
             }
         }
 
         if (delete.getJoins() != null) {
             for (Join join : delete.getJoins()) {
-                join.getRightItem().accept(this);
+                join.getRightItem().accept(this, context);
             }
         }
 
         if (delete.getWhere() != null) {
-            delete.getWhere().accept(this);
+            delete.getWhere().accept(this, context);
         }
+
+        return null;
     }
 
 }

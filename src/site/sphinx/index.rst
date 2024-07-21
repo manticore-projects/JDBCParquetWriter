@@ -1,3 +1,7 @@
+.. meta::
+   :description: Java Software Library for writing Parquet Files from queries or result sets
+   :keywords: parquet file, columnar database, result set, query, output, writer, duckdb, clickhouse
+
 ######################################
 JDBC ResultSet To Parquet File Writer
 ######################################
@@ -7,8 +11,8 @@ JDBC ResultSet To Parquet File Writer
    :hidden:
 
    usage
-   changelog
-   javadoc
+   Java API <javadoc.rst>
+   Changelog <changelog.rst>
 
 
 **JDBCParquetWriter** is a Java Library for writing `Apache Parquet <https://parquet.apache.org/>`_ Files from JDBC Tables or ResultSets. It uses `Apache Hadoop <https://hadoop.apache.org/>`_ and Parquet to translate the JDBC rows into the column based format.

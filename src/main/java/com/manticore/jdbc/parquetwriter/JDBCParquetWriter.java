@@ -146,6 +146,11 @@ public class JDBCParquetWriter {
                             }
                             break;
                         case java.sql.Types.BIGINT:
+                            long longValue = rs.getLong(i);
+                            if (!rs.wasNull()) {
+                                group.add(columnName, longValue);
+                            }
+                            break;
                         case java.sql.Types.INTEGER:
                         case java.sql.Types.SMALLINT:
                         case java.sql.Types.TINYINT:
