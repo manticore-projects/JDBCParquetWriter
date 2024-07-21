@@ -4,6 +4,26 @@ Changelog
 ************************
 
 
+Latest Changes since |JDBCPARQUETWRITER_VERSION|
+=============================================================
+
+
+  * **build: update gradle wrapper**
+    
+    Andreas Reichel, 2024-07-21
+  * **fix: read BigInt as Long**
+    
+    Andreas Reichel, 2024-07-21
+  * **build: better version and upload task**
+    
+    Andreas Reichel, 2023-05-19
+  * **doc: integrate XML Doclet and publish the JAVA API**
+    
+    Andreas Reichel, 2023-05-15
+  * **doc: Update Changelog**
+    
+    Andreas Reichel, 2023-05-07
+
 Version 1.1.0
 =============================================================
 
