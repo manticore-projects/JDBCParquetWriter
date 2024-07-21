@@ -32,5 +32,5 @@ out
 /.idea/
 
 # Auto-generated documentation
-/src/site/sphinx/javadoc.rst
-/src/site/sphinx/changelog.rst
+src/site/sphinx/javadoc.rst
+src/site/sphinx/changelog.rst

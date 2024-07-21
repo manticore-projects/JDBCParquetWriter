@@ -73,15 +73,17 @@ class JDBCParquetWriterTest {
     void write() throws Exception {
         String tableName = "execution_ref";
         File file = File.createTempFile(tableName, ".parquet");
+        long writtenRows = 0;
 
         String sqlStr = "SELECT * FROM test.execution_ref";
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
-            JDBCParquetWriter.write(file, tableName, rs);
+            writtenRows = JDBCParquetWriter.write(file, tableName, rs);
         }
 
         Assertions.assertTrue(file.exists());
         Assertions.assertTrue(file.canRead());
         Assertions.assertTrue(file.length() > 0);
+        Assertions.assertEquals(5, writtenRows);
     }
 
     @Test

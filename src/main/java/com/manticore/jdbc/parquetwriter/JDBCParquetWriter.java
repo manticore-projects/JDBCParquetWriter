@@ -42,20 +42,49 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.logging.Logger;
 
+/**
+ * The JDBC parquet writer class.
+ */
 public class JDBCParquetWriter {
+    /**
+     * The constant LOGGER.
+     */
     public final static Logger LOGGER = Logger.getLogger(JDBCParquetWriter.class.getName());
 
+    /**
+     * The enum Dialect.
+     */
     public enum Dialect {
-        DUCKDB, CLICKHOUSE
-    };
+        /**
+         * Duckdb dialect.
+         */
+        DUCKDB,
+        /**
+         * Clickhouse dialect.
+         */
+        CLICKHOUSE
+    }
 
+    /**
+     * Writes a query into a parquet file and returns an INSERT statement string for importing this
+     * file into a DuckDB table
+     *
+     * @param folder the folder for writing the parquet file to
+     * @param qryStr the query to execute
+     * @param targetTableName the target table name
+     * @param conn the JDBC connection for executing the query
+     * @param dialect the dialect for the INSERT statement
+     * @param compressionCodecName the compression codec name
+     * @return the INSERT statement text
+     * @throws Exception any exception during Query execution
+     */
     public static String writeFileForQueryResult(File folder, String qryStr, String targetTableName,
             Connection conn, Dialect dialect, CompressionCodecName compressionCodecName)
             throws Exception {
         File file = new File(folder, targetTableName + ".parquet");
         try (
                 Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery(qryStr);) {
+                ResultSet rs = st.executeQuery(qryStr)) {
             write(file, targetTableName, rs, compressionCodecName);
             LOGGER.info("Wrote parquet file: " + file.getAbsolutePath());
         }
@@ -67,43 +96,96 @@ public class JDBCParquetWriter {
         return importQryStr;
     }
 
+    /**
+     * Write all tables used in a query into parquet files and returns an INSERT statement string
+     * for importing all those file into DuckDB tables
+     *
+     * @param folder the folder for writing the parquet file to
+     * @param qryStr the query definition with the tables
+     * @param conn the JDBC connection for executing the query
+     * @param dialect the dialect for the INSERT statement
+     * @param compressionCodecName the compression codec name
+     * @return the INSERT statement text
+     * @throws Exception any exception during Query execution
+     */
     public static String writeFilesForQueryTables(File folder, String qryStr, Connection conn,
             Dialect dialect, CompressionCodecName compressionCodecName) throws Exception {
-        String importQryStr = "";
+        StringBuilder importQryStr = new StringBuilder();
 
         TableNamesFinder finder = new TableNamesFinder(qryStr);
         for (String tableName : finder.getSourceTableNames()) {
             LOGGER.info("Create parquet file for table: " + tableName);
 
-            importQryStr += "\n"
-                    + writeFileForQueryResult(
-                            folder, "SELECT * FROM " + tableName, tableName, conn, dialect,
-                            compressionCodecName);
+            importQryStr.append("\n").append(writeFileForQueryResult(
+                    folder, "SELECT * FROM " + tableName, tableName, conn, dialect,
+                    compressionCodecName));
         }
-        return importQryStr;
+        return importQryStr.toString();
     }
 
-    public static void write(File file, String tableName, Connection conn) throws Exception {
-        write(file, tableName, conn, CompressionCodecName.SNAPPY);
+    /**
+     * Writes a source table into a ParquetFile using SNAPPY for compression
+     *
+     * @param file the destination File
+     * @param tableName the source table name
+     * @param conn the source JDBC connection for accessing the source table
+     * @return the tally of written rows
+     * @throws Exception any exception from query execution
+     */
+    public static long write(File file, String tableName, Connection conn) throws Exception {
+        return write(file, tableName, conn, CompressionCodecName.SNAPPY);
     }
 
-    public static void write(File file, String tableName, Connection conn,
+    /**
+     * Writes a source table into a ParquetFile
+     *
+     * @param file the destination File
+     * @param tableName the source table name
+     * @param conn the source JDBC connection for accessing the source table
+     * @param compressionCodecName the compression codec name
+     * @return the tally of written rows
+     * @throws Exception any exception from query execution
+     */
+    public static long write(File file, String tableName, Connection conn,
             CompressionCodecName compressionCodecName) throws Exception {
+        long writtenRows;
         String qryStr = "SELECT * FROM " + tableName;
         try (
                 Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery(qryStr);) {
-            write(file, tableName, rs, compressionCodecName);
+                ResultSet rs = st.executeQuery(qryStr)) {
+            writtenRows = write(file, tableName, rs, compressionCodecName);
             LOGGER.info("Wrote parquet file: " + file.getAbsolutePath());
         }
+        return writtenRows;
     }
 
-    public static void write(File f, String tableName, ResultSet rs) throws Exception {
-        write(f, tableName, rs, CompressionCodecName.SNAPPY);
+    /**
+     * Writes a ResultSet into a ParquetFile using SNAPPY for compression
+     *
+     * @param f the destination File
+     * @param tableName the destination table name
+     * @param rs the ResultSet of data
+     * @return the tally of written rows
+     * @throws Exception any exception from query execution
+     */
+    public static long write(File f, String tableName, ResultSet rs) throws Exception {
+        return write(f, tableName, rs, CompressionCodecName.SNAPPY);
     }
 
-    public static void write(File f, String tableName, ResultSet rs,
+    /**
+     * Writes a ResultSet into a ParquetFile.
+     *
+     * @param f the destination File
+     * @param tableName the destination table name
+     * @param rs the ResultSet of data
+     * @param compressionCodecName the compression codec name
+     * @return the tally of written rows
+     * @throws Exception any exception from query execution
+     */
+    public static long write(File f, String tableName, ResultSet rs,
             CompressionCodecName compressionCodecName) throws Exception {
+        long writtenRows = 0L;
+
         // needed for org.apache.hadoop.util.Shell
         System.setProperty("hadoop.home.dir", f.getParent());
 
@@ -209,7 +291,7 @@ public class JDBCParquetWriter {
                             if (!rs.wasNull()) {
                                 if (scale > 0 && precision <= 18) {
                                     group.add(columnName, decimal.unscaledValue().longValue());
-                                } else if (scale > 0 && precision > 18) {
+                                } else if (scale > 0) {
                                     byte[] bytes = decimal.unscaledValue().toByteArray();
                                     group.add(columnName, Binary.fromConstantByteArray(bytes));
                                 } else if (precision < 5) {
@@ -225,10 +307,20 @@ public class JDBCParquetWriter {
                     }
                 }
                 writer.write(group);
+                writtenRows++;
             }
         }
+        return writtenRows;
     }
 
+    /**
+     * Derive the parquet schema from a JDBC result set.
+     *
+     * @param tableName the table name
+     * @param metadata the JDBC metadata
+     * @return the parquet schema from result set
+     * @throws SQLException any exception from query execution
+     */
     public static MessageType getParquetSchemaFromResultSet(String tableName,
             ResultSetMetaData metadata) throws SQLException {
         int columnCount = metadata.getColumnCount();
@@ -333,7 +425,7 @@ public class JDBCParquetWriter {
                                 : Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
                                         .as(LogicalTypeAnnotation.decimalType(scale, precision)))
                                 .named(columnName));
-                    } else if (scale > 0 && precision > 18) {
+                    } else if (scale > 0) {
                         builder.addField((nullable == ResultSetMetaData.columnNoNulls
                                 ? Types.required(PrimitiveType.PrimitiveTypeName.BINARY)
                                         .as(LogicalTypeAnnotation.decimalType(scale, precision))
