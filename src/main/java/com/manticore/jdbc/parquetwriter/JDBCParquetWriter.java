@@ -341,6 +341,11 @@ public class JDBCParquetWriter {
                             .named(columnName));
                     break;
                 case java.sql.Types.BIGINT:
+                    builder.addField((nullable == ResultSetMetaData.columnNoNulls
+                            ? Types.required(PrimitiveType.PrimitiveTypeName.INT64)
+                            : Types.optional(PrimitiveType.PrimitiveTypeName.INT64))
+                            .named(columnName));
+                    break;
                 case java.sql.Types.INTEGER:
                 case java.sql.Types.SMALLINT:
                 case java.sql.Types.TINYINT:
