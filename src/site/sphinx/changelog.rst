@@ -8,12 +8,50 @@ Latest Changes since |JDBCPARQUETWRITER_VERSION|
 =============================================================
 
 
+  * **doc: add changelog**
+    
+    Andreas Reichel, 2024-10-05
+  * **doc: add changelog**
+    
+    Andreas Reichel, 2024-10-05
+
+Version 1.2.0
+=============================================================
+
+
+  * **build: update parquet dependencies to the latest version in order to avoid CVEs**
+    
+    Andreas Reichel, 2024-10-05
+  * **Create dependabot.yml**
+    
+    manticore-projects, 2024-09-06
+  * **fix: support sql type BIGINT**
+    
+    hooklee2000, 2024-07-23
+  * **doc: update versions**
+    
+    Andreas Reichel, 2024-07-21
   * **build: update gradle wrapper**
     
     Andreas Reichel, 2024-07-21
   * **fix: read BigInt as Long**
     
     Andreas Reichel, 2024-07-21
+  * **doc: fix documentaion**
+    
+    Andreas Reichel, 2024-02-24
+  * **style: cleanup**
+    
+    Andreas Reichel, 2024-02-24
+  * **style: cleanup**
+    
+    Andreas Reichel, 2024-02-24
+  * **feat: return written rows**
+    
+    Andreas Reichel, 2024-02-24
+  * **build: set JDK version 11 since most gradle plugins depend on 11 now**
+    
+    Andreas Reichel, 2024-02-24
   * **build: better version and upload task**
     
     Andreas Reichel, 2023-05-19
