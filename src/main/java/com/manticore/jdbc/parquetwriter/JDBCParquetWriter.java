@@ -32,6 +32,7 @@ import org.apache.parquet.schema.Types;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -292,8 +293,43 @@ public class JDBCParquetWriter {
                                 if (scale > 0 && precision <= 18) {
                                     group.add(columnName, decimal.unscaledValue().longValue());
                                 } else if (scale > 0) {
-                                    byte[] bytes = decimal.unscaledValue().toByteArray();
-                                    group.add(columnName, Binary.fromConstantByteArray(bytes));
+                                    byte[] bytes =
+                                            decimal.setScale(scale, RoundingMode.HALF_EVEN)
+                                                    .unscaledValue().toByteArray();
+
+                                    // Ensure the byte array is padded correctly for the precision
+                                    int numBytes =
+                                            Math.max((int) Math.ceil(precision / Math.log10(2) / 8),
+                                                    bytes.length); // Calculate required bytes
+                                    byte[] paddedBytes = new byte[numBytes];
+                                    System.arraycopy(bytes, 0, paddedBytes, numBytes - bytes.length,
+                                            bytes.length);
+
+                                    group.add(columnName,
+                                            Binary.fromConstantByteArray(paddedBytes));
+                                } else if (scale == -127) {
+                                    /*
+                                     * https://docs.oracle.com/database/121/JAJDB/oracle/jdbc/
+                                     * OracleResultSetMetaData.html#isVariableScale_int If the scale
+                                     * of Oracle NUMBER, FLOAT, DECIMAL and DOUBLE database datatype
+                                     * is unspecified this method returns true. Oracle database
+                                     * returns -127 if scale is unspecified.
+                                     */
+                                    precision = 38;
+                                    scale = 10;
+                                    byte[] bytes = decimal.setScale(scale, RoundingMode.HALF_EVEN)
+                                            .unscaledValue().toByteArray();
+
+                                    // Ensure the byte array is padded correctly for the precision
+                                    int numBytes =
+                                            Math.max((int) Math.ceil(precision / Math.log10(2) / 8),
+                                                    bytes.length); // Calculate required bytes
+                                    byte[] paddedBytes = new byte[numBytes];
+                                    System.arraycopy(bytes, 0, paddedBytes, numBytes - bytes.length,
+                                            bytes.length);
+
+                                    group.add(columnName,
+                                            Binary.fromConstantByteArray(paddedBytes));
                                 } else if (precision < 5) {
                                     group.add(columnName, decimal.intValue());
                                 } else {
@@ -431,6 +467,22 @@ public class JDBCParquetWriter {
                                         .as(LogicalTypeAnnotation.decimalType(scale, precision)))
                                 .named(columnName));
                     } else if (scale > 0) {
+                        builder.addField((nullable == ResultSetMetaData.columnNoNulls
+                                ? Types.required(PrimitiveType.PrimitiveTypeName.BINARY)
+                                        .as(LogicalTypeAnnotation.decimalType(scale, precision))
+                                : Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                                        .as(LogicalTypeAnnotation.decimalType(scale, precision)))
+                                .named(columnName));
+                    } else if (scale == -127) {
+                        /*
+                         * https://docs.oracle.com/database/121/JAJDB/oracle/jdbc/
+                         * OracleResultSetMetaData.html#isVariableScale_int If the scale of Oracle
+                         * NUMBER, FLOAT, DECIMAL and DOUBLE database datatype is unspecified this
+                         * method returns true. Oracle database returns -127 if scale is
+                         * unspecified.
+                         */
+                        precision = 38;
+                        scale = 10;
                         builder.addField((nullable == ResultSetMetaData.columnNoNulls
                                 ? Types.required(PrimitiveType.PrimitiveTypeName.BINARY)
                                         .as(LogicalTypeAnnotation.decimalType(scale, precision))

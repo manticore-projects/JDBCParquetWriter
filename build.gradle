@@ -307,6 +307,13 @@ spotless {
 
 
 jacocoTestReport {
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    "**CCJSqlParserTokenManager**"
+            ])
+        }))
+    }
     dependsOn test // tests are required to run before generating the report
     reports {
         xml.required = false

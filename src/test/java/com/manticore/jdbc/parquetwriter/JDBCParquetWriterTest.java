@@ -27,6 +27,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 class JDBCParquetWriterTest {
     static Connection conn;
@@ -86,6 +87,34 @@ class JDBCParquetWriterTest {
         Assertions.assertTrue(file.canRead());
         Assertions.assertTrue(file.length() > 0);
         Assertions.assertEquals(6, writtenRows);
+    }
+
+    @Test
+    @Disabled
+    void testVBoxQuery() throws Exception {
+        Properties properties = new Properties();
+        properties.put("user", "SA");
+        properties.put("password", "");
+
+        Connection conn = DriverManager.getConnection(
+                "jdbc:h2:tcp://localhost//home/are/.manticore/ifrsbox;IFEXISTS=FALSE;COMPRESS=TRUE;PAGE_SIZE=128;DB_CLOSE_DELAY=30;AUTO_RECONNECT=TRUE;CACHE_SIZE=8192;MODE=Oracle;LOCK_TIMEOUT=10000;RETENTION_TIME=0",
+                properties);
+
+        String tableName = "test";
+        File file = File.createTempFile(tableName, ".parquet");
+        long writtenRows = 0;
+
+        String sqlStr = "SELECT  a.ead\n"
+                + "        , a.ecl\n"
+                + "FROM cfe.ext_ecl_details a\n"
+                + "FETCH FIRST ROWS ONLY\n"
+                + ";\n";
+        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
+            writtenRows = JDBCParquetWriter.write(file, tableName, rs);
+        } finally {
+            conn.close();
+        }
+
     }
 
     @Test
