@@ -11,9 +11,10 @@ plugins {
     id "com.diffplug.spotless" version "latest.release"
     id 'pmd'
     id 'checkstyle'
+    id 'org.sonatype.gradle.plugins.scan' version "latest.release"
 
     id "org.hidetake.ssh" version "latest.release"
-    id "se.bjurr.gitchangelog.git-changelog-gradle-plugin" version "2.0.0" //later depends on JDK 17
+    id "se.bjurr.gitchangelog.git-changelog-gradle-plugin" version "2.0.0" //later depends on JDK17
 
     id "me.champeau.jmh" version "latest.release"
 }
@@ -110,6 +111,15 @@ configurations.configureEach {
         force 'org.apache.logging.log4j:log4j-slf4j-impl:2.+'
         force 'org.apache.logging.log4j:log4j-jul:2.+'
         force 'org.slf4j:slf4j-log4j12:2.+'
+        force 'org.apache.avro:avro:+'
+        force 'org.apache.commons:commons-configuration2:+'
+
+        eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.bouncycastle' &&
+                    details.requested.name == 'bcprov-jdk15on') {
+                details.useTarget 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+            }
+        }
 
         // avoid vulnerable Hadoop Dependencies not needed for Parquet
         exclude(group: 'io.netty')
@@ -126,6 +136,9 @@ configurations.configureEach {
         exclude(group: 'org.codehaus.jackson', module: 'jackson-mapper-asl')
         exclude(group: 'org.apache.hadoop', module: 'hadoop-hdfs-client')
         exclude(group: 'com.google.guava', module: 'guava')
+
+        exclude(group: 'dnsjava', module: 'dnsjava')
+        exclude(group: 'com.nimbusds', module: 'nimbus-jose-jwt')
     }
 }
 
@@ -235,6 +248,10 @@ test {
 
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+
+    jacoco {
+        excludes = ['net/sf/jsqlparser/parser/CCJSqlParserTokenManager']
+    }
 }
 
 jmh {
