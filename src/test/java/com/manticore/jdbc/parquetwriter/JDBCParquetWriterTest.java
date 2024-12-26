@@ -54,7 +54,9 @@ class JDBCParquetWriterTest {
                 "INSERT INTO TEST.EXECUTION_REF "
                         + "VALUES (4, {d '2021-01-14'}, {ts '2021-01-15 01:03:56.375'}, 354.1, 354.1);",
                 "INSERT INTO TEST.EXECUTION_REF "
-                        + "VALUES (5, {d '2021-01-15'}, {ts '2021-01-16 00:19:20.212'}, 7.15, 7.15);"
+                        + "VALUES (5, {d '2021-01-15'}, {ts '2021-01-16 00:19:20.212'}, 7.15, 7.15);",
+                "INSERT INTO TEST.EXECUTION_REF "
+                        + " VALUES (6, {d '2024-08-30'}, {ts '2024-11-14 05:22:46.385'}, -290653956.00, 2832724.01000);\n"
         };
 
         try (Statement st = conn.createStatement()) {
@@ -83,7 +85,7 @@ class JDBCParquetWriterTest {
         Assertions.assertTrue(file.exists());
         Assertions.assertTrue(file.canRead());
         Assertions.assertTrue(file.length() > 0);
-        Assertions.assertEquals(5, writtenRows);
+        Assertions.assertEquals(6, writtenRows);
     }
 
     @Test
