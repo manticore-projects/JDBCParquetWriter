@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -90,7 +91,6 @@ class JDBCParquetWriterTest {
     }
 
     @Test
-    @Disabled
     void testVBoxQuery() throws Exception {
         Properties properties = new Properties();
         properties.put("user", "SA");
@@ -113,6 +113,55 @@ class JDBCParquetWriterTest {
             writtenRows = JDBCParquetWriter.write(file, tableName, rs);
         } finally {
             conn.close();
+        }
+
+    }
+
+    @Test
+    void testBigDecimal() throws Exception {
+        String tableName = "test";
+        String decimalStr = "-24999999999999.99500";
+
+        File file = File.createTempFile(tableName, ".parquet");
+        try (Connection conn = DriverManager.getConnection(
+                "jdbc:h2:mem:test")) {
+
+            String[] ddlStr = {
+                    "CREATE TABLE decimal_test (\n"
+                            + "   amount                 DECIMAL(23,5)  NULL\n"
+                            + ")\n"
+                            + ";"
+
+                    , "INSERT INTO decimal_test \n"
+                            + "VALUES (" + decimalStr + ");"
+            };
+
+            try (Statement st = conn.createStatement()) {
+                for (String sqlStr : ddlStr) {
+                    st.execute(sqlStr);
+                }
+            }
+
+            long writtenRows = 0;
+            String sqlStr = "SELECT  *\n"
+                    + "FROM decimal_test";
+            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
+                writtenRows = JDBCParquetWriter.write(file, tableName, rs);
+            }
+        }
+
+        String sqlStr = "SELECT  *\n"
+                + "FROM '" + file.getAbsolutePath() + "';";
+        try (Connection conn = DriverManager.getConnection(
+                "jdbc:duckdb:");
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(sqlStr)) {
+            if (rs.next()) {
+                BigDecimal actualDecimal = rs.getBigDecimal(1);
+                Assertions.assertEquals(decimalStr, actualDecimal.toPlainString());
+
+                final boolean delete = file.delete();
+            }
         }
 
     }

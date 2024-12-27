@@ -41,6 +41,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
@@ -293,18 +294,26 @@ public class JDBCParquetWriter {
                                 if (scale > 0 && precision <= 18) {
                                     group.add(columnName, decimal.unscaledValue().longValue());
                                 } else if (scale > 0) {
-                                    byte[] bytes =
-                                            decimal.setScale(scale, RoundingMode.HALF_EVEN)
-                                                    .unscaledValue().toByteArray();
+                                    // Scale the decimal to the desired precision and scale
+                                    byte[] unscaledBytes = decimal
+                                            .setScale(scale, RoundingMode.HALF_EVEN)
+                                            .unscaledValue()
+                                            .toByteArray();
+                                    int requiredBytes = 16;
 
-                                    // Ensure the byte array is padded correctly for the precision
-                                    int numBytes =
-                                            Math.max((int) Math.ceil(precision / Math.log10(2) / 8),
-                                                    bytes.length); // Calculate required bytes
-                                    byte[] paddedBytes = new byte[numBytes];
-                                    System.arraycopy(bytes, 0, paddedBytes, numBytes - bytes.length,
-                                            bytes.length);
+                                    // Ensure the byte array is padded correctly with sign extension
+                                    byte[] paddedBytes = new byte[requiredBytes];
+                                    byte signByte = (unscaledBytes[0] < 0) ? (byte) 0xFF : 0x00; // Extend
+                                                                                                 // sign
+                                                                                                 // bit
+                                    Arrays.fill(paddedBytes, 0,
+                                            requiredBytes - unscaledBytes.length, signByte);
+                                    System.arraycopy(unscaledBytes, 0, paddedBytes,
+                                            requiredBytes - unscaledBytes.length,
+                                            unscaledBytes.length);
 
+                                    // Add the binary representation of the decimal to the Parquet
+                                    // group
                                     group.add(columnName,
                                             Binary.fromConstantByteArray(paddedBytes));
                                 } else if (scale == -127) {
@@ -317,17 +326,27 @@ public class JDBCParquetWriter {
                                      */
                                     precision = 38;
                                     scale = 10;
-                                    byte[] bytes = decimal.setScale(scale, RoundingMode.HALF_EVEN)
-                                            .unscaledValue().toByteArray();
 
-                                    // Ensure the byte array is padded correctly for the precision
-                                    int numBytes =
-                                            Math.max((int) Math.ceil(precision / Math.log10(2) / 8),
-                                                    bytes.length); // Calculate required bytes
-                                    byte[] paddedBytes = new byte[numBytes];
-                                    System.arraycopy(bytes, 0, paddedBytes, numBytes - bytes.length,
-                                            bytes.length);
+                                    // Scale the decimal to the desired precision and scale
+                                    byte[] unscaledBytes = decimal
+                                            .setScale(scale, RoundingMode.HALF_EVEN)
+                                            .unscaledValue()
+                                            .toByteArray();
+                                    int requiredBytes = 16;
 
+                                    // Ensure the byte array is padded correctly with sign extension
+                                    byte[] paddedBytes = new byte[requiredBytes];
+                                    byte signByte = (unscaledBytes[0] < 0) ? (byte) 0xFF : 0x00; // Extend
+                                                                                                 // sign
+                                                                                                 // bit
+                                    Arrays.fill(paddedBytes, 0,
+                                            requiredBytes - unscaledBytes.length, signByte);
+                                    System.arraycopy(unscaledBytes, 0, paddedBytes,
+                                            requiredBytes - unscaledBytes.length,
+                                            unscaledBytes.length);
+
+                                    // Add the binary representation of the decimal to the Parquet
+                                    // group
                                     group.add(columnName,
                                             Binary.fromConstantByteArray(paddedBytes));
                                 } else if (precision < 5) {
