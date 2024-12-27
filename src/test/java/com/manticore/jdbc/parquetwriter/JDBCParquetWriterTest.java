@@ -91,33 +91,6 @@ class JDBCParquetWriterTest {
     }
 
     @Test
-    void testVBoxQuery() throws Exception {
-        Properties properties = new Properties();
-        properties.put("user", "SA");
-        properties.put("password", "");
-
-        Connection conn = DriverManager.getConnection(
-                "jdbc:h2:tcp://localhost//home/are/.manticore/ifrsbox;IFEXISTS=FALSE;COMPRESS=TRUE;PAGE_SIZE=128;DB_CLOSE_DELAY=30;AUTO_RECONNECT=TRUE;CACHE_SIZE=8192;MODE=Oracle;LOCK_TIMEOUT=10000;RETENTION_TIME=0",
-                properties);
-
-        String tableName = "test";
-        File file = File.createTempFile(tableName, ".parquet");
-        long writtenRows = 0;
-
-        String sqlStr = "SELECT  a.ead\n"
-                + "        , a.ecl\n"
-                + "FROM cfe.ext_ecl_details a\n"
-                + "FETCH FIRST ROWS ONLY\n"
-                + ";\n";
-        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
-            writtenRows = JDBCParquetWriter.write(file, tableName, rs);
-        } finally {
-            conn.close();
-        }
-
-    }
-
-    @Test
     void testBigDecimal() throws Exception {
         String tableName = "test";
         String decimalStr = "-24999999999999.99500";
@@ -165,8 +138,4 @@ class JDBCParquetWriterTest {
         }
 
     }
-
-    @Test
-    @Disabled
-    void getParquetSchemaFromResultSet() {}
 }
