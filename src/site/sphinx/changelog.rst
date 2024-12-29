@@ -4,39 +4,68 @@ Changelog
 ************************
 
 
-Latest Changes since |JDBCPARQUETWRITER_VERSION|
+Version 1.3.5
 =============================================================
 
 
-  * **doc: add changelog**
+  * **test: remove stale code**
+    
+    manticore-projects, 2024-12-27
+
+Version 1.3.3
+=============================================================
+
+
+  * **fix: issues with large Decimals and Oracle variable scale**
+    
+    manticore-projects, 2024-12-27
+
+Version 1.3.2
+=============================================================
+
+
+  * **build: fix dependencies**
+    
+    Andreas Reichel, 2024-10-05
+  * **doc: update changelog**
     
     Andreas Reichel, 2024-10-05
   * **doc: add changelog**
     
     Andreas Reichel, 2024-10-05
-
-Version 1.2.0
-=============================================================
-
-
+  * **doc: add changelog**
+    
+    Andreas Reichel, 2024-10-05
   * **build: update parquet dependencies to the latest version in order to avoid CVEs**
     
     Andreas Reichel, 2024-10-05
   * **Create dependabot.yml**
     
     manticore-projects, 2024-09-06
+
+Version 1.3.1
+=============================================================
+
+
+  * **fix: issues with large Decimals and Oracle variable scale**
+    
+    manticore-projects, 2024-12-26
+
+Version 1.3.0
+=============================================================
+
+
+  * **chore: Update versions**
+    
+    manticore-projects, 2024-12-26
   * **fix: support sql type BIGINT**
     
     hooklee2000, 2024-07-23
-  * **doc: update versions**
-    
-    Andreas Reichel, 2024-07-21
-  * **build: update gradle wrapper**
-    
-    Andreas Reichel, 2024-07-21
-  * **fix: read BigInt as Long**
-    
-    Andreas Reichel, 2024-07-21
+
+Version 1.2.1
+=============================================================
+
+
   * **doc: fix documentaion**
     
     Andreas Reichel, 2024-02-24
@@ -52,6 +81,20 @@ Version 1.2.0
   * **build: set JDK version 11 since most gradle plugins depend on 11 now**
     
     Andreas Reichel, 2024-02-24
+
+Version 1.2.0
+=============================================================
+
+
+  * **doc: update versions**
+    
+    Andreas Reichel, 2024-07-21
+  * **build: update gradle wrapper**
+    
+    Andreas Reichel, 2024-07-21
+  * **fix: read BigInt as Long**
+    
+    Andreas Reichel, 2024-07-21
   * **build: better version and upload task**
     
     Andreas Reichel, 2023-05-19

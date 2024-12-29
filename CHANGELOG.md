@@ -2,16 +2,15 @@
 
 Changelog of JDBCParquetWriter.
 
-## 1.2.0 (2024-10-05)
+## 1.3.5 (2024-12-27)
 
-### Features
-
--  return written rows ([6f86e](https://github.com/manticore-projects/JDBCParquetWriter/commit/6f86edb37a7374c) Andreas Reichel)
+## 1.3.3 (2024-12-27)
 
 ### Bug Fixes
 
--  support sql type BIGINT ([8a6ae](https://github.com/manticore-projects/JDBCParquetWriter/commit/8a6aea8a1a7ffca) hooklee2000)
--  read BigInt as Long ([f1938](https://github.com/manticore-projects/JDBCParquetWriter/commit/f193806e70c1c1d) Andreas Reichel)
+-  issues with large Decimals and Oracle variable scale ([54543](https://github.com/manticore-projects/JDBCParquetWriter/commit/54543af7d8e9921) manticore-projects)  
+
+## 1.3.2 (2024-12-26)
 
 ### Other changes
 
@@ -21,16 +20,44 @@ Changelog of JDBCParquetWriter.
 [e0eac](https://github.com/manticore-projects/JDBCParquetWriter/commit/e0eac8d8596a29e) manticore-projects *2024-09-06 05:17:49*
 
 
+## 1.3.1 (2024-12-26)
+
+### Bug Fixes
+
+-  issues with large Decimals and Oracle variable scale ([cace6](https://github.com/manticore-projects/JDBCParquetWriter/commit/cace62821385966) manticore-projects)  
+
+## 1.3.0 (2024-12-26)
+
+### Breaking changes
+
+-  Update versions ([37784](https://github.com/manticore-projects/JDBCParquetWriter/commit/377846af79bd0f0) manticore-projects)  
+
+### Bug Fixes
+
+-  support sql type BIGINT ([8a6ae](https://github.com/manticore-projects/JDBCParquetWriter/commit/8a6aea8a1a7ffca) hooklee2000)  
+
+## 1.2.1 (2024-07-21)
+
+### Features
+
+-  return written rows ([6f86e](https://github.com/manticore-projects/JDBCParquetWriter/commit/6f86edb37a7374c) Andreas Reichel)  
+
+## 1.2.0 (2024-07-21)
+
+### Bug Fixes
+
+-  read BigInt as Long ([f1938](https://github.com/manticore-projects/JDBCParquetWriter/commit/f193806e70c1c1d) Andreas Reichel)  
+
 ## 1.1.0 (2023-05-07)
 
 ### Features
 
--  DuckDB vs. H2 Performance Test ([d62ce](https://github.com/manticore-projects/JDBCParquetWriter/commit/d62ce78cbf2b69f) Andreas Reichel)
--  get Table Names from Query ([bcecd](https://github.com/manticore-projects/JDBCParquetWriter/commit/bcecd4df35ac6b1) Andreas Reichel)
+-  DuckDB vs. H2 Performance Test ([d62ce](https://github.com/manticore-projects/JDBCParquetWriter/commit/d62ce78cbf2b69f) Andreas Reichel)  
+-  get Table Names from Query ([bcecd](https://github.com/manticore-projects/JDBCParquetWriter/commit/bcecd4df35ac6b1) Andreas Reichel)  
 
 ### Bug Fixes
 
--  writing DECIMAL ([0ca93](https://github.com/manticore-projects/JDBCParquetWriter/commit/0ca932c1b95d83a) Andreas Reichel)
+-  writing DECIMAL ([0ca93](https://github.com/manticore-projects/JDBCParquetWriter/commit/0ca932c1b95d83a) Andreas Reichel)  
 
 ### Other changes
 
@@ -74,11 +101,11 @@ Changelog of JDBCParquetWriter.
 
 ### Features
 
--  First implementation ([5d2dd](https://github.com/manticore-projects/JDBCParquetWriter/commit/5d2dd31a1ac8235) Andreas Reichel)
+-  First implementation ([5d2dd](https://github.com/manticore-projects/JDBCParquetWriter/commit/5d2dd31a1ac8235) Andreas Reichel)  
 
 ### Bug Fixes
 
--  fix Writing Dates as epoch days since 1970 ([80085](https://github.com/manticore-projects/JDBCParquetWriter/commit/80085ba6baac7ee) Andreas Reichel)
+-  fix Writing Dates as epoch days since 1970 ([80085](https://github.com/manticore-projects/JDBCParquetWriter/commit/80085ba6baac7ee) Andreas Reichel)  
 
 ## 1.0.0 (2023-04-14)
 
@@ -88,3 +115,5 @@ Changelog of JDBCParquetWriter.
 
 
 [16785](https://github.com/manticore-projects/JDBCParquetWriter/commit/16785ccc5e3f50c) manticore-projects *2023-04-14 03:55:39*
+
+

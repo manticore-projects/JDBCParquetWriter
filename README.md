@@ -11,7 +11,7 @@ The Parquet File can be imported into Column based Analytics Databases such as [
 <dependency>
     <groupId>com.manticore-projects.jdbc</groupId>
     <artifactId>JDBCParquetWriter</artifactId>
-    <version>1.2.0</version>
+    <version>(1.3.5,]</version>
 </dependency>
 ```
 
