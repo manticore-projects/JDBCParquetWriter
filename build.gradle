@@ -117,7 +117,7 @@ configurations.configureEach {
         eachDependency { DependencyResolveDetails details ->
             if (details.requested.group == 'org.bouncycastle' &&
                     details.requested.name == 'bcprov-jdk15on') {
-                details.useTarget 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+                details.useTarget 'org.bouncycastle:bcprov-jdk18on:1.80'
             }
         }
 
