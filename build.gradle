@@ -97,7 +97,7 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.+'
     testImplementation 'com.h2database:h2:+'
-    testImplementation 'org.duckdb:duckdb_jdbc:1.1.3'
+    testImplementation 'org.duckdb:duckdb_jdbc:1.2.0'
 
     testImplementation 'org.openjdk.jmh:jmh-core:+'
     testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:+'
