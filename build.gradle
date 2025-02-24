@@ -95,7 +95,7 @@ dependencies {
     implementation 'com.github.jsqlparser:jsqlparser:+'
     xmlDoclet 'com.manticore-projects.tools:xml-doclet:+'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.+'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.+'
     testImplementation 'com.h2database:h2:+'
     testImplementation 'org.duckdb:duckdb_jdbc:1.1.3'
 
