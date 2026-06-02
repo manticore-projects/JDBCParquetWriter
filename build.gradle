@@ -11,12 +11,17 @@ plugins {
     id "com.diffplug.spotless" version "latest.release"
     id 'pmd'
     id 'checkstyle'
-    id 'org.sonatype.gradle.plugins.scan' version "latest.release"
 
     id "org.hidetake.ssh" version "latest.release"
-    id "se.bjurr.gitchangelog.git-changelog-gradle-plugin" version "2.0.0" //later depends on JDK17
+    id "se.bjurr.gitchangelog.git-changelog-gradle-plugin" version "latest.release"
 
     id "me.champeau.jmh" version "latest.release"
+
+    // Upload the existing maven-publish publication to the Sonatype Central Portal.
+    // (OSSRH / *.oss.sonatype.org was retired; the Portal API is the replacement.)
+    // Pinned on purpose: this DSL is version-sensitive, bump it occasionally by hand.
+    id "com.gradleup.nmcp" version "latest.release"
+    id "com.gradleup.nmcp.aggregation" version "latest.release"
 }
 
 repositories {
@@ -24,84 +29,153 @@ repositories {
     mavenLocal()
     mavenCentral()
 
-    // DuckDB Snapshots
-    maven {
-        url = uri('https://oss.sonatype.org/content/groups/public/')
-    }
-
-    // Sonatype OSSRH
-    maven {
-        url = uri('https://s01.oss.sonatype.org/content/repositories/snapshots/')
-    }
+    // NOTE: no snapshots repository on purpose. With version '+' everywhere, a snapshots repo
+    // lets '+' resolve to unstable -SNAPSHOT builds (that is exactly how you ended up on
+    // junit-jupiter 6.2.0-SNAPSHOT). If you ever truly need a specific snapshot, add it back
+    // WITH content filtering so it can't hijack your '+' release resolution, e.g.:
+    //   maven {
+    //       url = uri('https://central.sonatype.com/repository/maven-snapshots/')
+    //       mavenContent { snapshotsOnly() }
+    //       content { includeModule('com.manticore-projects.tools', 'xml-doclet') } // only what you need
+    //   }
 }
 
-def getVersion = { boolean considerSnapshot ->
-    int major = 0
-    int minor = 0
-    int patch = 0
-    int build = 0
-    String commit = ""
-    String snapshot = ""
-    new ByteArrayOutputStream().withStream { os ->
-        exec {
-            workingDir "$projectDir"
-            args = [
-                    "--no-pager"
-                    , "describe"
-                    , "--tags"
-                    , "--always"
-                    , "--dirty=-SNAPSHOT"
-            ]
-            executable "git"
-            standardOutput = os
-        }
-        def versionStr = os.toString().trim()
-        def pattern = /(?<major>\d*)\.(?<minor>\d*)(\.(?<patch>\d*))?(-(?<build>\d*)-(?<commit>[a-zA-Z\d]*))?/
-        def matcher = versionStr =~ pattern
-        if (matcher.find()) {
-            major = matcher.group('major') as Integer
-            minor = matcher.group('minor') as Integer
-            patch = matcher.group('patch') as Integer
-            build = matcher.group('build') as Integer
-            commit = matcher.group('commit')
-        }
 
-        if (considerSnapshot && ( versionStr.endsWith('SNAPSHOT') || build>0) ) {
-            minor++
-            patch = 0
-            snapshot =  "-SNAPSHOT"
-        }
-        println("Derived Version: $versionStr --> ${major}.${minor}.${patch}${snapshot}")
+def getVersion = { boolean considerSnapshot ->
+    Integer major = 0
+    Integer minor = 0
+    Integer patch = null
+    Integer build = null
+    String commit = null
+    String snapshot = ""
+
+    def versionStr = providers.exec {
+        commandLine "git", "--no-pager", "-C", project.projectDir,  "describe", "--tags", "--always", "--dirty=-SNAPSHOT"
+    }.standardOutput.asText.get().trim()
+
+    def pattern = /(?<major>\d*)\.(?<minor>\d*)(\.(?<patch>\d*))?(-(?<build>\d*)-(?<commit>[a-zA-Z\d]*))?/
+    def matcher = versionStr =~ pattern
+
+    if (matcher.find()) {
+        major = matcher.group('major') as Integer ?: 0
+        minor = matcher.group('minor') as Integer ?: 0
+        patch = matcher.group('patch') as Integer ?: null
+        build = matcher.group('build') as Integer ?: null
+        commit = matcher.group('commit') ?: null
     }
-    return "${major}.${minor}.${patch}${snapshot}"
+
+    if (considerSnapshot && (versionStr.endsWith('SNAPSHOT') || build != null)) {
+        minor++
+        if (patch != null) patch = 0
+        snapshot = "-SNAPSHOT"
+    }
+
+    return patch != null
+            ? "${major}.${minor}.${patch}${snapshot}"
+            : "${major}.${minor}${snapshot}"
 }
 version = getVersion(true)
 description = 'JDBC Table or ResultSet to Parquet File Writer'
 group = "com.manticore-projects.jdbc"
-archivesBaseName = "JDBCParquetWriter"
 
 configurations {
     xmlDoclet
 }
 
 dependencies {
-    implementation 'org.apache.parquet:parquet-common:+'
-    implementation 'org.apache.parquet:parquet-encoding:+'
-    implementation 'org.apache.parquet:parquet-column:+'
-    implementation 'org.apache.parquet:parquet-hadoop:+'
-    implementation 'org.apache.hadoop:hadoop-common:+'
-    implementation 'org.apache.hadoop:hadoop-mapreduce-client-core:+'
-    implementation 'org.lz4:lz4-java:+'
+    // parquet-hadoop transitively pulls parquet-column, parquet-encoding, parquet-common
+    // and parquet-format-structures, so this single line replaces the four old declarations.
+    // 'api' (not 'implementation') so downstream users of JDBCParquetWriter get the Parquet
+    // writer types on their compile + runtime classpath automatically.
+    api 'org.apache.parquet:parquet-hadoop:+'
 
-    implementation 'com.github.jsqlparser:jsqlparser:+'
+    // Required: ParquetWriter references org.apache.hadoop.conf.Configuration / fs.Path / FileSystem
+    // directly, so hadoop-common cannot be dropped. But everything it drags in for HDFS RPC, YARN,
+    // the embedded web UIs and Kerberos is dead weight when we only write LOCAL files.
+    //
+    // These are PER-DEPENDENCY excludes (unlike the old resolutionStrategy block), so they are
+    // written into the published POM's <exclusions> and every consumer inherits the slim graph.
+    // hadoop-mapreduce-client-core is intentionally gone entirely — it was the main source of the
+    // Guice / Jersey / YARN tree and is never needed to write a file with ParquetWriter.
+    api('org.apache.hadoop:hadoop-common:+') {
+        exclude group: 'io.netty'
+        exclude group: 'org.codehaus.jettison'
+        exclude group: 'org.mortbay.jetty'
+        exclude group: 'org.eclipse.jetty'
+        exclude group: 'org.eclipse.jetty.websocket'
+        exclude group: 'javax.servlet'
+        exclude group: 'javax.servlet.jsp'
+        exclude group: 'com.sun.jersey'
+        exclude group: 'com.github.pjfanning'              // jersey-json fork in newer Hadoop
+        exclude group: 'com.google.inject'                 // Guice
+        exclude group: 'com.google.inject.extensions'
+        exclude group: 'org.apache.curator'
+        exclude group: 'org.apache.zookeeper'
+        exclude group: 'org.apache.kerby'
+        exclude group: 'org.bouncycastle'
+        exclude group: 'com.google.protobuf'
+        exclude group: 'org.yaml'
+        exclude group: 'net.minidev', module: 'json-smart'
+        exclude group: 'org.codehaus.jackson', module: 'jackson-mapper-asl'
+        exclude group: 'org.apache.hadoop', module: 'hadoop-hdfs-client'
+        exclude group: 'com.google.guava', module: 'guava'
+        exclude group: 'dnsjava', module: 'dnsjava'
+        exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
+
+        // Hadoop's embedded HTTP server + JAX-RS REST stack (Jersey 2 / HK2 / servlet / JSP).
+        // Never exercised when writing local Parquet files.
+        exclude group: 'org.glassfish.jersey.core'
+        exclude group: 'org.glassfish.jersey.containers'
+        exclude group: 'org.glassfish.jersey.inject'
+        exclude group: 'org.glassfish.hk2'
+        exclude group: 'org.glassfish.hk2.external'
+        exclude group: 'org.javassist'
+        exclude group: 'jakarta.ws.rs'
+        exclude group: 'jakarta.servlet.jsp'
+        exclude group: 'jakarta.validation'
+        exclude group: 'jakarta.annotation'
+
+        // Likely droppable too — verify tests pass after adding these.
+        exclude group: 'org.glassfish.jaxb'
+        exclude group: 'jakarta.xml.bind'
+        exclude group: 'jakarta.activation'
+        exclude group: 'com.sun.istack'
+        exclude group: 'com.sun.activation'
+
+        // on parquet-hadoop:
+        exclude group: 'org.locationtech.jts'                              // Parquet geospatial stats; not used for SQL types
+
+        // on hadoop-common:
+        exclude group: 'com.google.code.findbugs', module: 'jsr305'        // annotation-only, leaked to runtime
+        exclude group: 'org.apache.httpcomponents'                         // httpclient+httpcore: HTTP auth / KMS / WebHDFS — test
+    }
+
+    // Pure runtime codec — consumers never compile against it, so 'implementation' is enough;
+    // it still lands in the POM at runtime scope and is pulled in automatically.
+    implementation 'at.yawk.lz4:lz4-java:+'
+
+    // Internal SQL parsing. Promote to 'api' only if your public API exposes JSqlParser types.
+    api 'com.manticore-projects.jsqlformatter:jsqlparser:+'
+
     xmlDoclet 'com.manticore-projects.tools:xml-doclet:+'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:+'
+    // Java 17 baseline now, so '+' (JUnit 6.x) is fine again.
+    testImplementation platform('org.junit:junit-bom:6.0.+')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // TableNamesFinderTest uses CollectionUtils. It used to leak in transitively via Hadoop;
+    // declare it explicitly so the test classpath doesn't depend on Hadoop's internals.
+    // NOTE: this is commons-collections *4* (package org.apache.commons.collections4) — see below.
+    testImplementation 'org.apache.commons:commons-collections4:+'
     testImplementation 'com.h2database:h2:+'
     testImplementation 'org.duckdb:duckdb_jdbc:+'
 
     testImplementation 'org.openjdk.jmh:jmh-core:+'
     testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:+'
+
+    // Tell nmcp which project's publications to upload to the Central Portal (this one).
+    nmcpAggregation(project)
 }
 
 configurations.configureEach {
@@ -115,31 +189,13 @@ configurations.configureEach {
         force 'org.apache.avro:avro:+'
         force 'org.apache.commons:commons-configuration2:+'
 
-        eachDependency { DependencyResolveDetails details ->
-            if (details.requested.group == 'org.bouncycastle' &&
-                    details.requested.name == 'bcprov-jdk15on') {
-                details.useTarget 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+        capabilitiesResolution.withCapability('org.lz4:lz4-java') { details ->
+            def realArtifact = details.candidates.find { it.id.group == 'at.yawk.lz4' }
+            if (realArtifact != null) {
+                details.select(realArtifact)
+                details.because('org.lz4:lz4-java relocated to at.yawk.lz4:lz4-java; pick the real artifact')
             }
         }
-
-        // avoid vulnerable Hadoop Dependencies not needed for Parquet
-        exclude(group: 'io.netty')
-        exclude(group: 'org.codehaus.jettison')
-        exclude(group: 'org.mortbay.jetty')
-        exclude(group: 'javax.servlet.jsp')
-        exclude(group: 'com.sun.jersey')
-        exclude(group: 'org.apache.curator')
-        exclude(group: 'org.apache.zookeeper')
-        exclude(group: 'org.apache.kerby')
-        exclude(group: 'com.google.protobuf')
-        exclude(group: 'org.yaml')
-        exclude(group: 'net.minidev', module: 'json-smart')
-        exclude(group: 'org.codehaus.jackson', module: 'jackson-mapper-asl')
-        exclude(group: 'org.apache.hadoop', module: 'hadoop-hdfs-client')
-        exclude(group: 'com.google.guava', module: 'guava')
-
-        exclude(group: 'dnsjava', module: 'dnsjava')
-        exclude(group: 'com.nimbusds', module: 'nimbus-jose-jwt')
     }
 }
 
@@ -147,11 +203,10 @@ java {
     withSourcesJar()
     withJavadocJar()
     sourceCompatibility(JavaVersion.VERSION_11)
-    targetCompatibility(JavaVersion.VERSION_11)
+    targetCompatibility(JavaVersion.VERSION_17)
 
-    // needed for XML-Doclet to work (since Doclet changed again with Java 13)
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(11))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
 
@@ -163,19 +218,22 @@ javadoc {
 }
 
 tasks.register('xmldoc', Javadoc) {
-    source = sourceSets.main.allJava
-    destinationDir = reporting.file("xmlDoclet")
-    options.docletpath = configurations.xmlDoclet.files.asType(List)
-    options.doclet = "com.github.markusbernhardt.xmldoclet.XmlDoclet"
-
-    options.addBooleanOption("rst", true)
-    options.addStringOption("basePackage", "com.manticore.jdbc")
-
     dependsOn(compileJava)
+
+    def outFile = layout.buildDirectory.file("reports/xmlDoclet/javadoc.xml").get().asFile
+    source = sourceSets.main.allJava
+    classpath = sourceSets.main.runtimeClasspath
+    title = "JDBCParquetWriter API $version"
+    destinationDir = layout.buildDirectory.dir("reports/xmlDoclet").get().asFile
+    options.docletpath = configurations.xmlDoclet.files as List
+    options.doclet = "com.manticore.tools.xmldoclet.XmlDoclet"
+    options.addStringOption("basePackage", "com.manticore.jdbc")
+    options.addStringOption("filename", outFile.getName())
+
     doLast {
         copy {
-            from reporting.file("xmlDoclet/javadoc.rst")
-            into "${projectDir}/src/site/sphinx/"
+            from outFile
+            into rootProject.layout.projectDirectory.dir("src/site/sphinx/_static").asFile
         }
     }
 }
@@ -225,20 +283,32 @@ publishing {
     }
     repositories {
         maven {
-            name "ossrh"
-
-            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-            def snapshotsRepoUrl= "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
-            credentials(PasswordCredentials)
-        }
-        maven {
             name = "GitHubPackages"
 
             url = uri("https://maven.pkg.github.com/manticore-projects/jdbcparquetwriter")
             credentials(PasswordCredentials)
         }
     }
+}
+
+// Central Portal upload (nmcp). Credentials are a Portal *user token*, generated at
+// https://central.sonatype.com/account -> "Generate User Token". Put them in
+// ~/.gradle/gradle.properties as mavenCentralUsername / mavenCentralPassword, or pass
+// them as ORG_GRADLE_PROJECT_mavenCentralUsername / ...Password environment variables.
+nmcpAggregation {
+    centralPortal {
+        username = providers.gradleProperty("mavenCentralUsername")
+        password = providers.gradleProperty("mavenCentralPassword")
+
+        // AUTOMATIC = release as soon as validation passes (fire-and-forget).
+        // Switch to "USER_MANAGED" if you'd rather click "Publish" yourself in the portal UI.
+        publishingType = "AUTOMATIC"
+    }
+}
+
+// Run the checks before pushing a release to Central.
+tasks.matching { it.name == 'publishAggregationToCentralPortal' }.configureEach {
+    dependsOn(check)
 }
 
 signing {
@@ -316,11 +386,11 @@ spotless {
 
         // define the steps to apply to those files
         trimTrailingWhitespace()
-        indentWithSpaces(4) // or spaces. Takes an integer argument if you don't like 4
+        leadingTabsToSpaces(4) // or spaces. Takes an integer argument if you don't like 4
         endWithNewline()
     }
     java {
-        indentWithSpaces(4)
+        leadingTabsToSpaces(4)
         eclipse().configFile('config/formatter/eclipse-java-google-style.xml')
     }
 }

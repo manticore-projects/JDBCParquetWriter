@@ -1,7 +1,7 @@
 package com.manticore.jdbc.parquetwriter;
 
 import net.sf.jsqlparser.JSQLParserException;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
