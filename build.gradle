@@ -430,14 +430,12 @@ jacocoTestCoverageVerification {
 }
 
 tasks.register('gitChangelogTask', GitChangelogTask) {
-    fromRepo = file("$projectDir")
-    file = new File("${projectDir}/src/site/sphinx/changelog.rst")
-    fromRef = "1.0.0"
-    //toRef = "1.1";
+    fromRepo.set(file("$projectDir").toString())
+    file.set(new File("${projectDir}/src/site/sphinx/changelog.rst"))
 
     // switch off the formatter since the indentation matters for Mark-down
     // @formatter:off
-    templateContent ="""
+    templateContent.set("""
 ************************
 Changelog
 ************************
@@ -445,7 +443,7 @@ Changelog
 
 {{#tags}}
 {{#ifMatches name "^Unreleased.*"}}
-Latest Changes since |JDBCPARQUETWRITER_VERSION|
+Latest Changes since |JAVA_FPNG_VERSION|
 {{/ifMatches}}
 {{#ifMatches name "^(?!Unreleased).*"}}
 Version {{name}}
@@ -464,7 +462,7 @@ Version {{name}}
 
  {{/issues}}
 {{/tags}}
-"""
+""")
     // @formatter:on
 }
 

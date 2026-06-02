@@ -4,10 +4,19 @@ Changelog
 ************************
 
 
-Latest Changes since |JDBCPARQUETWRITER_VERSION|
+Version 2.0
 =============================================================
 
 
+  * **feat: cleanup dependencies and go JDK17**
+    
+    Andreas Reichel, 2026-06-02
+  * **build: fix dependencies**
+    
+    Andreas Reichel, 2024-10-05
+  * **doc: update changelog**
+    
+    Andreas Reichel, 2024-10-05
   * **doc: add changelog**
     
     Andreas Reichel, 2024-10-05

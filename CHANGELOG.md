@@ -2,6 +2,19 @@
 
 Changelog of JDBCParquetWriter.
 
+## 2.0 (2026-06-02)
+
+### Breaking changes
+
+-  cleanup dependencies and go JDK17 ([ef868](https://github.com/manticore-projects/JDBCParquetWriter/commit/ef868c910ea45ac) Andreas Reichel)
+
+### Features
+
+-  cleanup dependencies and go JDK17 ([ef868](https://github.com/manticore-projects/JDBCParquetWriter/commit/ef868c910ea45ac) Andreas Reichel)
+
+### Other changes
+
+
 ## 1.2.0 (2024-10-05)
 
 ### Features
@@ -79,6 +92,9 @@ Changelog of JDBCParquetWriter.
 ### Bug Fixes
 
 -  fix Writing Dates as epoch days since 1970 ([80085](https://github.com/manticore-projects/JDBCParquetWriter/commit/80085ba6baac7ee) Andreas Reichel)
+
+### Other changes
+
 
 ## 1.0.0 (2023-04-14)
 
