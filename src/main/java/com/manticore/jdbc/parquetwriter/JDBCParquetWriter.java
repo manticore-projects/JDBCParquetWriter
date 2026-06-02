@@ -32,6 +32,7 @@ import org.apache.parquet.schema.Types;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -40,6 +41,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
@@ -292,8 +294,61 @@ public class JDBCParquetWriter {
                                 if (scale > 0 && precision <= 18) {
                                     group.add(columnName, decimal.unscaledValue().longValue());
                                 } else if (scale > 0) {
-                                    byte[] bytes = decimal.unscaledValue().toByteArray();
-                                    group.add(columnName, Binary.fromConstantByteArray(bytes));
+                                    // Scale the decimal to the desired precision and scale
+                                    byte[] unscaledBytes = decimal
+                                            .setScale(scale, RoundingMode.HALF_EVEN)
+                                            .unscaledValue()
+                                            .toByteArray();
+                                    int requiredBytes = 16;
+
+                                    // Ensure the byte array is padded correctly with sign extension
+                                    byte[] paddedBytes = new byte[requiredBytes];
+                                    byte signByte = (unscaledBytes[0] < 0) ? (byte) 0xFF : 0x00; // Extend
+                                                                                                 // sign
+                                                                                                 // bit
+                                    Arrays.fill(paddedBytes, 0,
+                                            requiredBytes - unscaledBytes.length, signByte);
+                                    System.arraycopy(unscaledBytes, 0, paddedBytes,
+                                            requiredBytes - unscaledBytes.length,
+                                            unscaledBytes.length);
+
+                                    // Add the binary representation of the decimal to the Parquet
+                                    // group
+                                    group.add(columnName,
+                                            Binary.fromConstantByteArray(paddedBytes));
+                                } else if (scale == -127) {
+                                    /*
+                                     * https://docs.oracle.com/database/121/JAJDB/oracle/jdbc/
+                                     * OracleResultSetMetaData.html#isVariableScale_int If the scale
+                                     * of Oracle NUMBER, FLOAT, DECIMAL and DOUBLE database datatype
+                                     * is unspecified this method returns true. Oracle database
+                                     * returns -127 if scale is unspecified.
+                                     */
+                                    precision = 38;
+                                    scale = 10;
+
+                                    // Scale the decimal to the desired precision and scale
+                                    byte[] unscaledBytes = decimal
+                                            .setScale(scale, RoundingMode.HALF_EVEN)
+                                            .unscaledValue()
+                                            .toByteArray();
+                                    int requiredBytes = 16;
+
+                                    // Ensure the byte array is padded correctly with sign extension
+                                    byte[] paddedBytes = new byte[requiredBytes];
+                                    byte signByte = (unscaledBytes[0] < 0) ? (byte) 0xFF : 0x00; // Extend
+                                                                                                 // sign
+                                                                                                 // bit
+                                    Arrays.fill(paddedBytes, 0,
+                                            requiredBytes - unscaledBytes.length, signByte);
+                                    System.arraycopy(unscaledBytes, 0, paddedBytes,
+                                            requiredBytes - unscaledBytes.length,
+                                            unscaledBytes.length);
+
+                                    // Add the binary representation of the decimal to the Parquet
+                                    // group
+                                    group.add(columnName,
+                                            Binary.fromConstantByteArray(paddedBytes));
                                 } else if (precision < 5) {
                                     group.add(columnName, decimal.intValue());
                                 } else {
@@ -431,6 +486,22 @@ public class JDBCParquetWriter {
                                         .as(LogicalTypeAnnotation.decimalType(scale, precision)))
                                 .named(columnName));
                     } else if (scale > 0) {
+                        builder.addField((nullable == ResultSetMetaData.columnNoNulls
+                                ? Types.required(PrimitiveType.PrimitiveTypeName.BINARY)
+                                        .as(LogicalTypeAnnotation.decimalType(scale, precision))
+                                : Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+                                        .as(LogicalTypeAnnotation.decimalType(scale, precision)))
+                                .named(columnName));
+                    } else if (scale == -127) {
+                        /*
+                         * https://docs.oracle.com/database/121/JAJDB/oracle/jdbc/
+                         * OracleResultSetMetaData.html#isVariableScale_int If the scale of Oracle
+                         * NUMBER, FLOAT, DECIMAL and DOUBLE database datatype is unspecified this
+                         * method returns true. Oracle database returns -127 if scale is
+                         * unspecified.
+                         */
+                        precision = 38;
+                        scale = 10;
                         builder.addField((nullable == ResultSetMetaData.columnNoNulls
                                 ? Types.required(PrimitiveType.PrimitiveTypeName.BINARY)
                                         .as(LogicalTypeAnnotation.decimalType(scale, precision))

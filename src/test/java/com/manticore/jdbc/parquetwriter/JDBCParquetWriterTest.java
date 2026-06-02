@@ -18,10 +18,10 @@ package com.manticore.jdbc.parquetwriter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -54,7 +54,9 @@ class JDBCParquetWriterTest {
                 "INSERT INTO TEST.EXECUTION_REF "
                         + "VALUES (4, {d '2021-01-14'}, {ts '2021-01-15 01:03:56.375'}, 354.1, 354.1);",
                 "INSERT INTO TEST.EXECUTION_REF "
-                        + "VALUES (5, {d '2021-01-15'}, {ts '2021-01-16 00:19:20.212'}, 7.15, 7.15);"
+                        + "VALUES (5, {d '2021-01-15'}, {ts '2021-01-16 00:19:20.212'}, 7.15, 7.15);",
+                "INSERT INTO TEST.EXECUTION_REF "
+                        + " VALUES (6, {d '2024-08-30'}, {ts '2024-11-14 05:22:46.385'}, -290653956.00, 2832724.01000);\n"
         };
 
         try (Statement st = conn.createStatement()) {
@@ -83,10 +85,55 @@ class JDBCParquetWriterTest {
         Assertions.assertTrue(file.exists());
         Assertions.assertTrue(file.canRead());
         Assertions.assertTrue(file.length() > 0);
-        Assertions.assertEquals(5, writtenRows);
+        Assertions.assertEquals(6, writtenRows);
     }
 
     @Test
-    @Disabled
-    void getParquetSchemaFromResultSet() {}
+    void testBigDecimal() throws Exception {
+        String tableName = "test";
+        String decimalStr = "-24999999999999.99500";
+
+        File file = File.createTempFile(tableName, ".parquet");
+        try (Connection conn = DriverManager.getConnection(
+                "jdbc:h2:mem:test")) {
+
+            String[] ddlStr = {
+                    "CREATE TABLE decimal_test (\n"
+                            + "   amount                 DECIMAL(23,5)  NULL\n"
+                            + ")\n"
+                            + ";"
+
+                    , "INSERT INTO decimal_test \n"
+                            + "VALUES (" + decimalStr + ");"
+            };
+
+            try (Statement st = conn.createStatement()) {
+                for (String sqlStr : ddlStr) {
+                    st.execute(sqlStr);
+                }
+            }
+
+            long writtenRows = 0;
+            String sqlStr = "SELECT  *\n"
+                    + "FROM decimal_test";
+            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
+                writtenRows = JDBCParquetWriter.write(file, tableName, rs);
+            }
+        }
+
+        String sqlStr = "SELECT  *\n"
+                + "FROM '" + file.getAbsolutePath() + "';";
+        try (Connection conn = DriverManager.getConnection(
+                "jdbc:duckdb:");
+                Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(sqlStr)) {
+            if (rs.next()) {
+                BigDecimal actualDecimal = rs.getBigDecimal(1);
+                Assertions.assertEquals(decimalStr, actualDecimal.toPlainString());
+
+                final boolean delete = file.delete();
+            }
+        }
+
+    }
 }
