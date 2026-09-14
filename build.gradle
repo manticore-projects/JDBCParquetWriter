@@ -225,23 +225,86 @@ javadoc {
 }
 
 tasks.register('xmldoc', Javadoc) {
-    dependsOn(compileJava)
+    description = 'Writes the Java API as XML for the sphinx-javadoc-xml extension'
+    group = 'documentation'
+
+    // `classpath = sourceSets.main.runtimeClasspath` already carries the dependency on
+    // compileJava, so an explicit dependsOn(compileJava) is redundant
 
     def outFile = layout.buildDirectory.file("reports/xmlDoclet/javadoc.xml").get().asFile
+    def staticDir = layout.projectDirectory.dir("src/site/sphinx/_static").asFile
+
     source = sourceSets.main.allJava
     classpath = sourceSets.main.runtimeClasspath
     title = "JDBCParquetWriter API $version"
     destinationDir = layout.buildDirectory.dir("reports/xmlDoclet").get().asFile
+
     options.docletpath = configurations.xmlDoclet.files as List
     options.doclet = "com.manticore.tools.xmldoclet.XmlDoclet"
-    options.addStringOption("basePackage", "com.manticore.jdbc")
+
+    // XmlDoclet accepts a fixed set of flags and rejects everything else. `-docencoding` is
+    // supported, `-encoding` is NOT -- never set `options.encoding` on this task.
+    options.addStringOption("docencoding", "UTF-8")
     options.addStringOption("filename", outFile.getName())
+
+    // only used by the doclet's own XSL transforms for trimming displayed package names; the
+    // emitted XML always carries fully qualified names, which is what javadoc.rst filters on
+    options.addStringOption("basePackage", "com.manticore.jdbc")
+
+    // without this the doclet stamps the generation time into the XML, so every run produces a
+    // different file and the task can never be UP-TO-DATE
+    options.addBooleanOption("noTimestamp", true)
+
+    // the copy below lands outside the build directory, so declare it or Gradle neither tracks
+    // it nor lets `sphinx` depend on it properly
+    outputs.file(new File(staticDir, outFile.getName()))
 
     doLast {
         copy {
             from outFile
-            into rootProject.layout.projectDirectory.dir("src/site/sphinx/_static").asFile
+            into staticDir
         }
+    }
+}
+
+
+tasks.register('sphinx', Exec) {
+    dependsOn('gitChangelogTask', 'xmldoc')
+
+    // the |JDBCPARQUETWRITER_*| substitutions used throughout src/site/sphinx/*.rst
+    String PROLOG = """
+.. |_| unicode:: U+00A0
+    :trim:
+
+.. |JDBCPARQUETWRITER_EMAIL| replace:: support@manticore-projects.com
+.. |JDBCPARQUETWRITER_VERSION| replace:: ${getVersion(false)}
+.. |JDBCPARQUETWRITER_SNAPSHOT_VERSION| replace:: ${getVersion(true)}
+.. |JDBCPARQUETWRITER_STABLE_VERSION_LINK| raw:: html
+
+    <a href='https://manticore-projects.com/download/${project.name}-${getVersion(false)}/${project.name}-${getVersion(false)}.jar'>${project.name}-${getVersion(false)}.jar</a>
+
+.. |JDBCPARQUETWRITER_SNAPSHOT_VERSION_LINK| raw:: html
+
+    <a href='https://manticore-projects.com/download/${project.name}-${getVersion(false)}/${project.name}-${getVersion(true)}.jar'>${project.name}-${getVersion(true)}.jar</a>
+
+"""
+
+    args = [
+            "-Dproject=JDBCParquetWriter"
+            , "-Dcopyright=Andreas Reichel, 2023"
+            , "-Dauthor=Andreas Reichel"
+            , "-Drelease=${getVersion(false)}"
+            , "-Drst_prolog=$PROLOG"
+            , "${projectDir}/src/site/sphinx"
+            , layout.buildDirectory.file("sphinx").get().asFile
+    ]
+
+    // pip install sphinx sphinx-javadoc-xml sphinx-inline-tabs manticore-sphinx-theme
+    executable "sphinx-build"
+
+    standardOutput = new ByteArrayOutputStream()
+    ext.output = {
+        return standardOutput.toString()
     }
 }
 

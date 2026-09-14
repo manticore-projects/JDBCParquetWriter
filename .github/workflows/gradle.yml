@@ -1,9 +1,7 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-# This workflow will build a Java project with Gradle and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-gradle
+# Build and verify JDBCParquetWriter on every push and pull request.
+#
+# Uses actions that are not certified by GitHub. They are provided by a third party and are
+# governed by separate terms of service, privacy policy and support documentation.
 
 name: Java CI with Gradle
 
@@ -12,24 +10,63 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# a new push to the same branch cancels an in-flight run of this workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-
+    name: Build with JDK ${{ matrix.java }}
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        # 21 is the toolchain the build declares; 25 guards against the next LTS breaking us
+        java: [ '21', '25' ]
+
     steps:
-    - uses: actions/checkout@v3
-      with:
-        ref: main
-        fetch-depth: 0
-    - name: Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-    - name: Build with Gradle
-      run: gradle build check
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          # the version is derived from `git describe --tags`, so the full history and the
+          # tags have to be present. Do NOT pin `ref: main` here: on a pull_request that
+          # would check out the target branch and test the wrong code.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          # the Gradle wrapper is not committed (see .gitignore), so the version is pinned
+          # here instead. Remove this line once `gradle/wrapper/` is in the repository and
+          # switch the build step below to `./gradlew`.
+          gradle-version: '9.7.1'
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Build and check
+        # `build` already runs `check`; `--stacktrace` makes a CI-only failure diagnosable
+        run: gradle build --stacktrace
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-jdk-${{ matrix.java }}
+          path: |
+            build/reports/
+            build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
