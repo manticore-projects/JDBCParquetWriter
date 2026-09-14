@@ -3,6 +3,9 @@ import se.bjurr.gitchangelog.plugin.gradle.GitChangelogTask
 plugins {
     id 'java-library'
 
+    // Same publishing mechanics as JSqlParser: the Vanniktech plugin creates the publication,
+    // signs it and performs the Central Portal upload *and* release in one task.
+    id "com.vanniktech.maven.publish" version "latest.release"
     id 'maven-publish'
     id 'signing'
 
@@ -16,12 +19,6 @@ plugins {
     id "se.bjurr.gitchangelog.git-changelog-gradle-plugin" version "latest.release"
 
     id "me.champeau.jmh" version "latest.release"
-
-    // Upload the existing maven-publish publication to the Sonatype Central Portal.
-    // (OSSRH / *.oss.sonatype.org was retired; the Portal API is the replacement.)
-    // Pinned on purpose: this DSL is version-sensitive, bump it occasionally by hand.
-    id "com.gradleup.nmcp" version "latest.release"
-    id "com.gradleup.nmcp.aggregation" version "latest.release"
 }
 
 repositories {
@@ -74,7 +71,10 @@ def getVersion = { boolean considerSnapshot ->
             ? "${major}.${minor}.${patch}${snapshot}"
             : "${major}.${minor}${snapshot}"
 }
-version = getVersion(true)
+// for publishing a release, call Gradle with Environment Variable RELEASE:
+// RELEASE=true gradle publishToMavenCentral
+// getVersion(true) unconditionally appended -SNAPSHOT, so a release could never be built
+version = getVersion(!System.getenv("RELEASE"))
 description = 'JDBC Table or ResultSet to Parquet File Writer'
 group = "com.manticore-projects.jdbc"
 
@@ -173,9 +173,6 @@ dependencies {
 
     testImplementation 'org.openjdk.jmh:jmh-core:+'
     testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:+'
-
-    // Tell nmcp which project's publications to upload to the Central Portal (this one).
-    nmcpAggregation(project)
 }
 
 configurations.configureEach {
@@ -201,13 +198,23 @@ configurations.configureEach {
 
 java {
     withSourcesJar()
-    withJavadocJar()
-    sourceCompatibility(JavaVersion.VERSION_11)
+    // withJavadocJar() -- the Javadoc JAR is built and attached by mavenPublishing below
+
+    // source 11 / target 17 was inconsistent: the published bytecode is Java 17 and can not be
+    // read by a Java 11 runtime anyway. `release` makes the compiler check the API level too.
+    sourceCompatibility(JavaVersion.VERSION_17)
     targetCompatibility(JavaVersion.VERSION_17)
 
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
     }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+    // names the deprecated API that the build only reports as a "Note:" today
+    options.compilerArgs << '-Xlint:unchecked' << '-Xlint:deprecation'
 }
 
 javadoc {
@@ -238,46 +245,66 @@ tasks.register('xmldoc', Javadoc) {
     }
 }
 
-publish {
-    dependsOn(check)
+// `publish` is Gradle's own task; the Central Portal upload runs under `publishToMavenCentral`.
+// Both need the same prerequisites, or a CI job invoking the latter silently skips check.
+// Task names are given as Strings so this block does not depend on declaration order.
+tasks.matching { it.name in ['publish', 'publishToMavenCentral'] }.configureEach {
+    dependsOn('check')
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifactId = 'jdbcparquetwriter'
+// Credentials are a Central Portal *user token*, generated at
+// https://central.sonatype.com/account -> "Generate User Token". Put them in
+// ~/.gradle/gradle.properties as mavenCentralUsername / mavenCentralPassword, or pass
+// them as ORG_GRADLE_PROJECT_mavenCentralUsername / ...Password environment variables.
+mavenPublishing {
+    // true = release as soon as validation passes (fire-and-forget). Use
+    // publishToMavenCentral(false) to stop at the staged deployment and click "Publish" yourself.
+    publishToMavenCentral(true)
+    signAllPublications()
 
-            from components.java
-            versionMapping {
-                usage('java-api') {
-                    fromResolutionOf('runtimeClasspath')
-                }
-                usage('java-runtime') {
-                    fromResolutionResult()
-                }
+    coordinates(group, "jdbcparquetwriter", version)
+
+    pom {
+        name.set('JDBCParquetWriter')
+        description.set('JDBC Table or ResultSet to Parquet File Writer')
+        url.set('https://manticore-projects.com/JDBCParquetWriter')
+
+        licenses {
+            license {
+                name.set('The GNU GENERAL PUBLIC LICENSE, Version 3.0')
+                url.set('https://www.gnu.org/licenses/gpl-3.0.en.html')
             }
-            pom {
-                name = 'JDBCParquetWriter'
-                description = 'JDBC Table or ResultSet to Parquet File Writer'
-                url = 'https://manticore-projects.com/JDBCParquetWriter'
-                licenses {
-                    license {
-                        name = 'The GNU GENERAL PUBLIC LICENSE, Version 3.0'
-                        url = 'https://www.gnu.org/licenses/gpl-3.0.en.html'
-                    }
-                }
-                developers {
-                    developer {
-                        id = 'are'
-                        name = 'Andreas Reichel'
-                        email = 'andreas@manticore-projects.com'
-                    }
-                }
-                scm {
-                    connection = 'scm:git:https://github.com/manticore-projects/JDBCParquetWriter.git'
-                    developerConnection = 'scm:git:ssh://git@github.com:manticore-projects/JDBCParquetWriter.git'
-                    url = 'https://github.com/manticore-projects/JDBCParquetWriter'
-                }
+        }
+
+        developers {
+            developer {
+                id.set('are')
+                name.set('Andreas Reichel')
+                email.set('andreas@manticore-projects.com')
+            }
+        }
+
+        scm {
+            connection.set('scm:git:https://github.com/manticore-projects/JDBCParquetWriter.git')
+            developerConnection
+                    .set('scm:git:ssh://git@github.com:manticore-projects/JDBCParquetWriter.git')
+            url.set('https://github.com/manticore-projects/JDBCParquetWriter')
+        }
+    }
+}
+
+// versionMapping is a MavenPublication feature, not a POM feature, so it can not live inside
+// the mavenPublishing { pom { } } block. It matters here because every dependency is declared
+// with a dynamic version ('+'), and the published POM must name the versions actually resolved.
+// The GitHubPackages repository is kept; the Central Portal upload is handled by the plugin.
+publishing {
+    publications.withType(MavenPublication).configureEach {
+        versionMapping {
+            usage('java-api') {
+                fromResolutionOf('runtimeClasspath')
+            }
+            usage('java-runtime') {
+                fromResolutionResult()
             }
         }
     }
@@ -291,29 +318,7 @@ publishing {
     }
 }
 
-// Central Portal upload (nmcp). Credentials are a Portal *user token*, generated at
-// https://central.sonatype.com/account -> "Generate User Token". Put them in
-// ~/.gradle/gradle.properties as mavenCentralUsername / mavenCentralPassword, or pass
-// them as ORG_GRADLE_PROJECT_mavenCentralUsername / ...Password environment variables.
-nmcpAggregation {
-    centralPortal {
-        username = providers.gradleProperty("mavenCentralUsername")
-        password = providers.gradleProperty("mavenCentralPassword")
-
-        // AUTOMATIC = release as soon as validation passes (fire-and-forget).
-        // Switch to "USER_MANAGED" if you'd rather click "Publish" yourself in the portal UI.
-        publishingType = "AUTOMATIC"
-    }
-}
-
-// Run the checks before pushing a release to Central.
-tasks.matching { it.name == 'publishAggregationToCentralPortal' }.configureEach {
-    dependsOn(check)
-}
-
-signing {
-    sign publishing.publications.mavenJava
-}
+// Signing and its task wiring are handled by mavenPublishing.signAllPublications() above.
 
 
 test {
@@ -332,8 +337,9 @@ jmh {
     benchmarkMode = ['avgt'] // Benchmark mode. Available modes are: [Throughput/thrpt, AverageTime/avgt, SampleTime/sample, SingleShotTime/ss, All/all]
     fork = 1 // How many times to forks a single benchmark. Use 0 to disable forking altogether
     failOnError = true // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
-    humanOutputFile = project.file("${project.buildDir}/reports/jmh/human.txt") // human-readable output file
-    resultsFile = project.file("${project.buildDir}/reports/jmh/results.txt") // results file
+    // project.buildDir is deprecated and removed in Gradle 10; use the layout provider
+    humanOutputFile = layout.buildDirectory.file("reports/jmh/human.txt").get().asFile
+    resultsFile = layout.buildDirectory.file("reports/jmh/results.txt").get().asFile
     resultFormat = 'CSV' // Result format type (one of CSV, JSON, NONE, SCSV, TEXT)
     timeUnit = 'ms' // Output time unit. Available time units are: [m, s, ms, us, ns].
     includeTests = true
@@ -342,8 +348,10 @@ jmh {
 spotbugsMain {
     reports {
         html {
-            enabled = true
-            destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
+            // `enabled` and `destination` are deprecated: use required/outputLocation
+            required = true
+            outputLocation = layout.buildDirectory
+                    .file("reports/spotbugs/main/spotbugs.html")
             stylesheet = 'fancy-hist.xsl'
         }
     }
@@ -354,12 +362,14 @@ spotbugs {
 }
 
 pmd {
-    consoleOutput = false
-    sourceSets = [sourceSets.main]
+    consoleOutput = true
+    sourceSets = [sourceSets.main, sourceSets.test]
 
     // clear the ruleset in order to use configured rules only
     ruleSets = []
 
+    // NOTE: only priority 1 rules are enforced. CyclomaticComplexity / NcssCount are priority 3
+    // and therefore silent today; raise this to 3 once you are ready to act on them.
     rulesMinimumPriority = 1
     ruleSetFiles = files("config/pmd/ruleset.xml")
 }
@@ -490,7 +500,8 @@ tasks.register('upload') {
             session(remotes.webServer) {
                 def versionStable = getVersion(false)
                 execute "mkdir -p download/${project.name}-${versionStable}"
-                for (File file: fileTree(include:['*.jar'], dir:"${project.buildDir}/libs").collect()) {
+                def libsDir = layout.buildDirectory.dir("libs").get().asFile
+                for (File file: fileTree(include:['*.jar'], dir: libsDir).collect()) {
                     put from: file, into: "download/${project.name}-${versionStable}"
                 }
             }

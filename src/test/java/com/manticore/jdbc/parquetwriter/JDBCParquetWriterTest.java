@@ -78,7 +78,7 @@ class JDBCParquetWriterTest {
         long writtenRows = 0;
 
         String sqlStr = "SELECT * FROM test.execution_ref";
-        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
+        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr)) {
             writtenRows = JDBCParquetWriter.write(file, tableName, rs);
         }
 
@@ -113,11 +113,10 @@ class JDBCParquetWriterTest {
                 }
             }
 
-            long writtenRows = 0;
             String sqlStr = "SELECT  *\n"
                     + "FROM decimal_test";
-            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr);) {
-                writtenRows = JDBCParquetWriter.write(file, tableName, rs);
+            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlStr)) {
+                Assertions.assertEquals(1, JDBCParquetWriter.write(file, tableName, rs));
             }
         }
 
@@ -127,13 +126,12 @@ class JDBCParquetWriterTest {
                 "jdbc:duckdb:");
                 Statement st = conn.createStatement();
                 ResultSet rs = st.executeQuery(sqlStr)) {
-            if (rs.next()) {
-                BigDecimal actualDecimal = rs.getBigDecimal(1);
-                Assertions.assertEquals(decimalStr, actualDecimal.toPlainString());
+            boolean found = rs.next();
+            Assertions.assertTrue(found, "No record found in the parquet file.");
 
-                final boolean delete = file.delete();
-            }
+            BigDecimal actualDecimal = rs.getBigDecimal(1);
+            Assertions.assertEquals(decimalStr, actualDecimal.toPlainString());
         }
-
+        Assertions.assertTrue(file.delete(), "Failed to delete " + file.getAbsolutePath());
     }
 }

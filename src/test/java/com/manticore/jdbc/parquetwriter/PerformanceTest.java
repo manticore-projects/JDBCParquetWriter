@@ -5,6 +5,7 @@ import net.sf.jsqlparser.statement.Statements;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -34,17 +35,16 @@ import java.util.logging.Logger;
 @State(Scope.Benchmark)
 @Execution(ExecutionMode.SAME_THREAD)
 public class PerformanceTest {
-    private final static Logger LOGGER = Logger.getLogger(PerformanceTest.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PerformanceTest.class.getName());
     static Connection connH2;
     static Connection connDuck;
 
     // Beware: 100 Mill will create a 20 GByte H2 database
-    private final static int SAMPLE_SIZE
-            = System.getenv("SAMPLE_SIZE") != null
-              ? Integer.parseInt(System.getenv("SAMPLE_SIZE"))
-              : 100 * 1000000;
+    private static final int SAMPLE_SIZE = System.getenv("SAMPLE_SIZE") != null
+            ? Integer.parseInt(System.getenv("SAMPLE_SIZE"))
+            : 100 * 1000000;
 
-    private final static String[] KEY_COLUMNS = {"PRODUCT", "SEGMENT", "TYPE", "IMPAIRMENT_STAGE"};
+    private static final String[] KEY_COLUMNS = {"PRODUCT", "SEGMENT", "TYPE", "IMPAIRMENT_STAGE"};
 
     public static boolean isInitialised = false;
 
@@ -68,7 +68,7 @@ public class PerformanceTest {
                     PerformanceTest.class.getClassLoader());
             Statements statements = CCJSqlParserUtil.parseStatements(sqlStr);
             try (Statement st = connH2.createStatement()) {
-                for (net.sf.jsqlparser.statement.Statement statement : statements.getStatements()) {
+                for (net.sf.jsqlparser.statement.Statement statement : statements) {
                     LOGGER.fine("execute: " + statement.toString());
                     st.execute(statement.toString());
                 }
@@ -76,7 +76,7 @@ public class PerformanceTest {
 
             LOGGER.info("Create the DuckDB Table with Indices");
             try (Statement st = connDuck.createStatement()) {
-                for (net.sf.jsqlparser.statement.Statement statement : statements.getStatements()) {
+                for (net.sf.jsqlparser.statement.Statement statement : statements) {
                     LOGGER.fine("execute: " + statement.toString());
                     st.execute(statement.toString());
                 }
@@ -208,7 +208,7 @@ public class PerformanceTest {
 
             LOGGER.info("Build Indices in H2");
             try (Statement st = connH2.createStatement()) {
-                for (net.sf.jsqlparser.statement.Statement statement : statements.getStatements()) {
+                for (net.sf.jsqlparser.statement.Statement statement : statements) {
                     LOGGER.fine("execute: " + statement.toString());
                     st.execute(statement.toString());
                 }
@@ -217,7 +217,7 @@ public class PerformanceTest {
 
             LOGGER.info("Build Indices in DuckDB");
             try (Statement st = connDuck.createStatement()) {
-                for (net.sf.jsqlparser.statement.Statement statement : statements.getStatements()) {
+                for (net.sf.jsqlparser.statement.Statement statement : statements) {
                     LOGGER.fine("execute: " + statement.toString());
                     st.execute(statement.toString());
                 }
@@ -239,18 +239,20 @@ public class PerformanceTest {
         ArrayList<Object> results = new ArrayList<>();
         String sqlString =
                 "SELECT  a.product\n"
-                + "        , a.segment\n"
-                + "        , a.type\n"
-                + "        , a.impairment_stage\n"
-                + "        , Count( a.* )\n"
-                + "        , Sum( a.amortised_cost )\n"
-                + "FROM test a\n"
-                + "GROUP BY    a.product\n"
-                + "            , a.segment\n"
-                + "            , a.type\n"
-                + "            , a.impairment_stage\n"
-                + ";";
-        try (Statement st = connH2.createStatement();
+                        + "        , a.segment\n"
+                        + "        , a.type\n"
+                        + "        , a.impairment_stage\n"
+                        + "        , Count( a.* )\n"
+                        + "        , Sum( a.amortised_cost )\n"
+                        + "FROM test a\n"
+                        + "GROUP BY    a.product\n"
+                        + "            , a.segment\n"
+                        + "            , a.type\n"
+                        + "            , a.impairment_stage\n"
+                        + ";";
+        // was: connH2.createStatement() regardless of the argument, so every "DuckDB"
+        // measurement below was in fact measuring H2
+        try (Statement st = conn.createStatement();
                 ResultSet rs = st.executeQuery(sqlString)) {
             if (rs.next()) {
                 results.add(rs.getInt(5));
@@ -264,24 +266,24 @@ public class PerformanceTest {
 
     @Test
     void testH2Query() {
-        Object[] results = queryDB(connH2);
+        Assertions.assertEquals(2, queryDB(connH2).length);
     }
 
     @Test
     void testDuckDBQuery() {
-        Object[] results = queryDB(connDuck);
+        Assertions.assertEquals(2, queryDB(connDuck).length);
     }
 
     @Benchmark
     public void queryH2(Blackhole blackhole) {
-        for (Object o: queryDB(connH2)) {
+        for (Object o : queryDB(connH2)) {
             blackhole.consume(o);
         }
     }
 
     @Benchmark
     public void testDuckDB(Blackhole blackhole) {
-        for (Object o: queryDB(connDuck)) {
+        for (Object o : queryDB(connDuck)) {
             blackhole.consume(o);
         }
     }

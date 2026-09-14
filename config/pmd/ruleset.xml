@@ -101,7 +101,8 @@ under the License.
     <rule ref="category/java/errorprone.xml/UnconditionalIfStatement" />
     <rule ref="category/java/errorprone.xml/UnnecessaryConversionTemporary" />
     <rule ref="category/java/errorprone.xml/UnusedNullCheckInEquals" />
-    <rule ref="category/java/errorprone.xml/UselessOperationOnImmutable" />
+    <!-- UselessOperationOnImmutable is deprecated in PMD 7 and will be removed in PMD 8;
+         referencing it only produces a build warning, so it is dropped here. -->
 
     <!-- for Codazy -->
     <rule ref="category/java/multithreading.xml/AvoidThreadGroup" />
